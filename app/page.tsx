@@ -151,11 +151,11 @@ function drawDemo(context: CanvasRenderingContext2D, width: number, height: numb
 
 function fitTitle(context: CanvasRenderingContext2D, width: number, height: number) {
   const title = "OBSESSION";
-  let fontSize = height * 0.092;
-  context.font = `900 ${fontSize}px Arial Black, Impact, sans-serif`;
+  let fontSize = height * 0.102;
+  context.font = `${fontSize}px Anton, Impact, sans-serif`;
   while (context.measureText(title).width > width * 0.79 && fontSize > 16) {
     fontSize *= 0.97;
-    context.font = `900 ${fontSize}px Arial Black, Impact, sans-serif`;
+    context.font = `${fontSize}px Anton, Impact, sans-serif`;
   }
   return fontSize;
 }
@@ -241,16 +241,22 @@ function renderPoster(
   const fontSize = fitTitle(context, width, height);
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.font = `900 ${fontSize}px Arial Black, Impact, sans-serif`;
+  context.font = `${fontSize}px Anton, Impact, sans-serif`;
+  context.save();
+  context.translate(width * 0.5, 0);
+  context.scale(0.86, 1);
   context.shadowColor = "rgba(255, 45, 31, .9)";
-  context.shadowBlur = fontSize * 0.13;
+  context.shadowBlur = fontSize * 0.16;
   context.fillStyle = "#ee2c20";
-  context.fillText("OBSESSION", width * 0.5, titleY);
+  context.filter = `blur(${fontSize * 0.025}px)`;
+  context.fillText("OBSESSION", 0, titleY);
+  context.filter = "none";
   context.shadowBlur = 0;
-  context.globalAlpha = 0.72;
+  context.globalAlpha = 0.82;
   context.fillStyle = "#ff3e2d";
-  context.fillText("OBSESSION", width * 0.5, titleY - fontSize * 0.015);
+  context.fillText("OBSESSION", 0, titleY - fontSize * 0.015);
   context.globalAlpha = 1;
+  context.restore();
 
   const noiseSize = width > 1000 ? 280 : 120;
   const noise = seededNoise(noiseSize, 32 + controls.grain * 0.9);
@@ -360,6 +366,7 @@ export default function Home() {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment");
+  const [fontReady, setFontReady] = useState(false);
 
   const updateControl = useCallback((key: keyof Controls, value: number) => {
     setControls((current) => ({ ...current, [key]: value }));
@@ -374,7 +381,11 @@ export default function Home() {
       imageRef.current,
       controls,
     );
-  }, [controls, fileName]);
+  }, [controls, fileName, fontReady]);
+
+  useEffect(() => {
+    void document.fonts.load('96px "Anton"').then(() => setFontReady(true));
+  }, []);
 
   useEffect(() => {
     if (!cameraOpen) return;
@@ -591,6 +602,7 @@ export default function Home() {
     await new Promise((resolve) => window.setTimeout(resolve, 40));
 
     try {
+      await document.fonts.load('256px "Anton"');
       const exportCanvas = document.createElement("canvas");
       renderPoster(exportCanvas, A3_WIDTH, A3_HEIGHT, imageRef.current, controls);
       const rawBlob = await new Promise<Blob>((resolve, reject) => {
