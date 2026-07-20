@@ -23,6 +23,29 @@ type Controls = {
   offsetY: number;
 };
 
+type PoseLandmark = {
+  x: number;
+  y: number;
+  z?: number;
+  visibility?: number;
+};
+
+type PoseLandmarkerLike = {
+  detectForVideo: (
+    source: HTMLVideoElement,
+    timestamp: number,
+  ) => { landmarks: PoseLandmark[][] };
+  close: () => void;
+};
+
+type PoseFeedback = {
+  tone: "loading" | "good" | "adjust" | "missing";
+  label: string;
+  score: number;
+};
+
+type TimerSeconds = 0 | 3 | 10;
+
 type FaceDetectorResult = {
   boundingBox: { x: number; y: number; width: number; height: number };
 };
@@ -45,6 +68,124 @@ const DEFAULT_CONTROLS: Controls = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function isVisible(point?: PoseLandmark, minimum = 0.42) {
+  return Boolean(point && (point.visibility ?? 1) >= minimum);
+}
+
+function mapPoseToPoster(
+  landmarks: PoseLandmark[],
+  videoWidth: number,
+  videoHeight: number,
+  mirrored: boolean,
+) {
+  const targetRatio = A3_WIDTH / A3_HEIGHT;
+  const sourceRatio = videoWidth / videoHeight;
+  let sourceX = 0;
+  let sourceY = 0;
+  let sourceWidth = videoWidth;
+  let sourceHeight = videoHeight;
+
+  if (sourceRatio > targetRatio) {
+    sourceWidth = videoHeight * targetRatio;
+    sourceX = (videoWidth - sourceWidth) / 2;
+  } else {
+    sourceHeight = videoWidth / targetRatio;
+    sourceY = (videoHeight - sourceHeight) / 2;
+  }
+
+  return landmarks.map((point) => {
+    const x = (point.x * videoWidth - sourceX) / sourceWidth;
+    return {
+      ...point,
+      x: mirrored ? 1 - x : x,
+      y: (point.y * videoHeight - sourceY) / sourceHeight,
+    };
+  });
+}
+
+function readPose(landmarks: PoseLandmark[]) {
+  const nose = landmarks[0];
+  const leftShoulder = landmarks[11];
+  const rightShoulder = landmarks[12];
+  const leftWrist = landmarks[15];
+  const rightWrist = landmarks[16];
+
+  if (!isVisible(leftShoulder) || !isVisible(rightShoulder)) return null;
+
+  const shoulderCenterX = (leftShoulder.x + rightShoulder.x) / 2;
+  const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+  const wristsVisible = isVisible(leftWrist, 0.34) && isVisible(rightWrist, 0.34);
+
+  return {
+    nose,
+    leftShoulder,
+    rightShoulder,
+    leftWrist,
+    rightWrist,
+    shoulderCenterX,
+    shoulderWidth,
+    wristsVisible,
+    wristCenterY: wristsVisible ? (leftWrist.y + rightWrist.y) / 2 : null,
+    wristSeparation: wristsVisible ? Math.abs(leftWrist.x - rightWrist.x) : null,
+  };
+}
+
+function evaluatePose(landmarks: PoseLandmark[]): PoseFeedback {
+  const pose = readPose(landmarks);
+  if (!pose) {
+    return { tone: "missing", label: "往后一点，让肩膀和双手入镜", score: 0 };
+  }
+
+  if (pose.shoulderCenterX < 0.43) {
+    return { tone: "adjust", label: "向右一点", score: 42 };
+  }
+  if (pose.shoulderCenterX > 0.57) {
+    return { tone: "adjust", label: "向左一点", score: 42 };
+  }
+  if (pose.shoulderWidth < 0.25) {
+    return { tone: "adjust", label: "再靠近一点", score: 55 };
+  }
+  if (pose.shoulderWidth > 0.58) {
+    return { tone: "adjust", label: "稍微退后一点", score: 55 };
+  }
+  if (isVisible(pose.nose) && pose.nose.y > 0.34) {
+    return { tone: "adjust", label: "镜头向上抬一点", score: 64 };
+  }
+  if (isVisible(pose.nose) && pose.nose.y < 0.1) {
+    return { tone: "adjust", label: "镜头向下压一点", score: 64 };
+  }
+  if (!pose.wristsVisible) {
+    return { tone: "adjust", label: "双手放到瓶身两侧", score: 70 };
+  }
+  if ((pose.wristSeparation ?? 0) < 0.15) {
+    return { tone: "adjust", label: "双手再分开一点", score: 76 };
+  }
+  if ((pose.wristCenterY ?? 0) < 0.49) {
+    return { tone: "adjust", label: "双手往下一点", score: 78 };
+  }
+  if ((pose.wristCenterY ?? 1) > 0.78) {
+    return { tone: "adjust", label: "双手抬高一点", score: 78 };
+  }
+
+  return { tone: "good", label: "站位正确，可以拍", score: 100 };
+}
+
+function controlsFromPose(landmarks: PoseLandmark[]): Controls | null {
+  const pose = readPose(landmarks);
+  if (!pose) return null;
+
+  const scale = clamp(Math.round(108 * (0.39 / pose.shoulderWidth)), 102, 132);
+  const travel = Math.max(0.025, (scale / 100 - 1) / 2);
+  const faceY = isVisible(pose.nose) ? pose.nose.y : 0.23;
+
+  return {
+    ...DEFAULT_CONTROLS,
+    scale,
+    offsetX: Math.round(clamp(((0.5 - pose.shoulderCenterX) / travel) * 100, -100, 100)),
+    offsetY: Math.round(clamp(((0.23 - faceY) / travel) * 100, -100, 100)),
+  };
 }
 
 function coverRect(
@@ -364,6 +505,12 @@ export default function Home() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const poseLandmarkerRef = useRef<PoseLandmarkerLike | null>(null);
+  const poseInitRef = useRef<Promise<PoseLandmarkerLike> | null>(null);
+  const latestPoseRef = useRef<PoseLandmark[] | null>(null);
+  const poseFrameRef = useRef<number | null>(null);
+  const lastPoseVideoTimeRef = useRef(-1);
+  const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const [controls, setControls] = useState(DEFAULT_CONTROLS);
   const [fileName, setFileName] = useState("");
@@ -377,6 +524,14 @@ export default function Home() {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment");
+  const [poseFeedback, setPoseFeedback] = useState<PoseFeedback>({
+    tone: "loading",
+    label: "AI 正在准备…",
+    score: 0,
+  });
+  const [timerSeconds, setTimerSeconds] = useState<TimerSeconds>(3);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [aiAdjusted, setAiAdjusted] = useState(false);
   const [fontReady, setFontReady] = useState(false);
 
   const updateControl = useCallback((key: keyof Controls, value: number) => {
@@ -398,6 +553,57 @@ export default function Home() {
     void document.fonts.load('96px "Anton"').then(() => setFontReady(true));
   }, []);
 
+  const clearCountdown = useCallback(() => {
+    if (countdownTimeoutRef.current) {
+      clearTimeout(countdownTimeoutRef.current);
+      countdownTimeoutRef.current = null;
+    }
+    setCountdown(null);
+  }, []);
+
+  const closeCamera = useCallback(() => {
+    clearCountdown();
+    setCameraOpen(false);
+  }, [clearCountdown]);
+
+  const ensurePoseLandmarker = useCallback(() => {
+    if (poseLandmarkerRef.current) return Promise.resolve(poseLandmarkerRef.current);
+    if (poseInitRef.current) return poseInitRef.current;
+
+    poseInitRef.current = (async () => {
+      const vision = await import("@mediapipe/tasks-vision");
+      const fileset = await vision.FilesetResolver.forVisionTasks("./mediapipe/wasm");
+      const options = {
+        baseOptions: {
+          modelAssetPath: "./models/pose_landmarker_lite.task",
+          delegate: "GPU" as const,
+        },
+        runningMode: "VIDEO" as const,
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.48,
+        minPosePresenceConfidence: 0.48,
+        minTrackingConfidence: 0.45,
+      };
+
+      let landmarker;
+      try {
+        landmarker = await vision.PoseLandmarker.createFromOptions(fileset, options);
+      } catch {
+        landmarker = await vision.PoseLandmarker.createFromOptions(fileset, {
+          ...options,
+          baseOptions: { ...options.baseOptions, delegate: "CPU" },
+        });
+      }
+      poseLandmarkerRef.current = landmarker as unknown as PoseLandmarkerLike;
+      return poseLandmarkerRef.current;
+    })().catch((error) => {
+      poseInitRef.current = null;
+      throw error;
+    });
+
+    return poseInitRef.current;
+  }, []);
+
   useEffect(() => {
     if (!cameraOpen) return;
     let cancelled = false;
@@ -412,6 +618,8 @@ export default function Home() {
       stopStream();
       setCameraReady(false);
       setCameraError("");
+      latestPoseRef.current = null;
+      setPoseFeedback({ tone: "loading", label: "AI 正在准备…", score: 0 });
       if (!navigator.mediaDevices?.getUserMedia) {
         setCameraError("当前浏览器不支持实时取景，请使用系统高清相机。");
         return;
@@ -449,6 +657,78 @@ export default function Home() {
     };
   }, [cameraOpen, cameraFacing]);
 
+  useEffect(() => {
+    if (!cameraOpen || !cameraReady) return;
+    let cancelled = false;
+    let lastAnalysis = 0;
+
+    const startPoseGuide = async () => {
+      try {
+        const landmarker = await ensurePoseLandmarker();
+        if (cancelled) return;
+
+        const analyze = (now: number) => {
+          if (cancelled) return;
+          const video = videoRef.current;
+          if (
+            video &&
+            video.readyState >= 2 &&
+            video.videoWidth > 0 &&
+            now - lastAnalysis >= 320 &&
+            video.currentTime !== lastPoseVideoTimeRef.current
+          ) {
+            lastAnalysis = now;
+            lastPoseVideoTimeRef.current = video.currentTime;
+            try {
+              const result = landmarker.detectForVideo(video, now);
+              const rawPose = result.landmarks[0];
+              if (rawPose) {
+                const mappedPose = mapPoseToPoster(
+                  rawPose,
+                  video.videoWidth,
+                  video.videoHeight,
+                  cameraFacing === "user",
+                );
+                latestPoseRef.current = mappedPose;
+                setPoseFeedback(evaluatePose(mappedPose));
+              } else {
+                latestPoseRef.current = null;
+                setPoseFeedback({
+                  tone: "missing",
+                  label: "往后一点，让肩膀和双手入镜",
+                  score: 0,
+                });
+              }
+            } catch {
+              setPoseFeedback({ tone: "missing", label: "按参考线站位即可", score: 0 });
+            }
+          }
+          poseFrameRef.current = requestAnimationFrame(analyze);
+        };
+
+        poseFrameRef.current = requestAnimationFrame(analyze);
+      } catch {
+        if (!cancelled) {
+          setPoseFeedback({ tone: "missing", label: "按参考线站位即可", score: 0 });
+        }
+      }
+    };
+
+    void startPoseGuide();
+    return () => {
+      cancelled = true;
+      if (poseFrameRef.current !== null) {
+        cancelAnimationFrame(poseFrameRef.current);
+        poseFrameRef.current = null;
+      }
+    };
+  }, [cameraFacing, cameraOpen, cameraReady, ensurePoseLandmarker]);
+
+  useEffect(() => () => {
+    if (countdownTimeoutRef.current) clearTimeout(countdownTimeoutRef.current);
+    poseLandmarkerRef.current?.close();
+  }, []);
+
   const autoAlign = useCallback(async (image: HTMLImageElement) => {
     const Detector = (window as typeof window & { FaceDetector?: FaceDetectorConstructor })
       .FaceDetector;
@@ -475,7 +755,7 @@ export default function Home() {
   }, []);
 
   const loadFile = useCallback(
-    (file: File) => {
+    (file: File, poseForAdjustment?: PoseLandmark[] | null) => {
       if (!file.type.startsWith("image/")) {
         setStatus("请选择 JPG、PNG 或 WebP 图片。");
         return;
@@ -490,7 +770,11 @@ export default function Home() {
       image.onload = () => {
         imageRef.current = image;
         setFileName(file.name);
-        setControls(DEFAULT_CONTROLS);
+        const aiControls = poseForAdjustment
+          ? controlsFromPose(poseForAdjustment)
+          : null;
+        setControls(aiControls ?? DEFAULT_CONTROLS);
+        setAiAdjusted(Boolean(aiControls));
         const megapixels = (image.naturalWidth * image.naturalHeight) / 1_000_000;
         if (megapixels >= 16 && Math.max(image.naturalWidth, image.naturalHeight) >= 4800) {
           setQuality({ tone: "excellent", label: `原图 ${megapixels.toFixed(1)}MP · A3 优秀` });
@@ -499,8 +783,12 @@ export default function Home() {
         } else {
           setQuality({ tone: "low", label: `原图 ${megapixels.toFixed(1)}MP · 建议换高清图` });
         }
-        setStatus("照片已载入，正在检查人物位置……");
-        void autoAlign(image);
+        if (aiControls) {
+          setStatus("AI 已校正人物大小和位置，滤镜也已套用。");
+        } else {
+          setStatus("照片已载入，正在检查人物位置……");
+          void autoAlign(image);
+        }
         URL.revokeObjectURL(url);
       };
       image.onerror = () => {
@@ -517,7 +805,7 @@ export default function Home() {
     if (file) loadFile(file);
   };
 
-  const captureGuidedPhoto = () => {
+  const capturePhotoNow = useCallback(() => {
     const video = videoRef.current;
     if (!video || !cameraReady || !video.videoWidth || !video.videoHeight) {
       setCameraError("相机还在准备，请稍等一秒再拍。");
@@ -544,6 +832,7 @@ export default function Home() {
     captureCanvas.height = Math.max(1, Math.floor(sourceHeight));
     const context = captureCanvas.getContext("2d");
     if (!context) return;
+    const capturedPose = latestPoseRef.current;
 
     if (cameraFacing === "user") {
       context.translate(captureCanvas.width, 0);
@@ -566,13 +855,47 @@ export default function Home() {
           setCameraError("照片没有保存成功，请再拍一次。");
           return;
         }
-        loadFile(new File([blob], `obsession-camera-${Date.now()}.jpg`, { type: "image/jpeg" }));
-        setCameraOpen(false);
+        loadFile(
+          new File([blob], `obsession-camera-${Date.now()}.jpg`, { type: "image/jpeg" }),
+          capturedPose,
+        );
+        closeCamera();
       },
       "image/jpeg",
       0.96,
     );
-  };
+  }, [cameraFacing, cameraReady, closeCamera, loadFile]);
+
+  const startTimedCapture = useCallback(() => {
+    if (countdown !== null) {
+      clearCountdown();
+      return;
+    }
+    if (timerSeconds === 0) {
+      capturePhotoNow();
+      return;
+    }
+
+    let remaining = timerSeconds;
+    setCountdown(remaining);
+    navigator.vibrate?.(35);
+
+    const tick = () => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        countdownTimeoutRef.current = null;
+        setCountdown(null);
+        navigator.vibrate?.(70);
+        capturePhotoNow();
+        return;
+      }
+      setCountdown(remaining);
+      navigator.vibrate?.(35);
+      countdownTimeoutRef.current = setTimeout(tick, 1000);
+    };
+
+    countdownTimeoutRef.current = setTimeout(tick, 1000);
+  }, [capturePhotoNow, clearCountdown, countdown, timerSeconds]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     if (!imageRef.current) return;
@@ -700,6 +1023,7 @@ export default function Home() {
             <span>300 DPI</span>
           </div>
           <div className={`quality-badge quality-${quality.tone}`}>{quality.label}</div>
+          {aiAdjusted && <div className="ai-adjusted-badge">AI 已校正构图</div>}
         </div>
       </section>
 
@@ -759,7 +1083,7 @@ export default function Home() {
         <section className="camera-overlay" role="dialog" aria-modal="true" aria-label="带站位线拍摄">
           <header className="camera-header">
             <span>OBSESSION</span>
-            <button aria-label="关闭相机" onClick={() => setCameraOpen(false)}>×</button>
+            <button aria-label="关闭相机" onClick={closeCamera}>×</button>
           </header>
 
           <div className="camera-viewport">
@@ -770,8 +1094,7 @@ export default function Home() {
               playsInline
               className={cameraFacing === "user" ? "camera-mirrored" : ""}
             />
-            <div className="composition-guide" aria-hidden="true">
-              <div className="guide-instruction">花盖住脸 · 双手抱住瓶身</div>
+            <div className={`composition-guide ${poseFeedback.tone === "good" ? "guide-good" : ""}`} aria-hidden="true">
               <div className="guide-bouquet" />
               <div className="guide-face" />
               <div className="guide-vase"><i /></div>
@@ -783,14 +1106,67 @@ export default function Home() {
               <i className="corner corner-bl" />
               <i className="corner corner-br" />
             </div>
+            {cameraReady && !cameraError && (
+              <div
+                className={`pose-feedback pose-feedback-${poseFeedback.tone}`}
+                role="status"
+                aria-live="polite"
+                aria-label={`AI 站位检测：${poseFeedback.label}`}
+              >
+                <i />
+                <span>{poseFeedback.label}</span>
+              </div>
+            )}
+            {countdown !== null && (
+              <button
+                className="camera-countdown"
+                aria-label="取消倒计时"
+                onClick={clearCountdown}
+              >
+                {countdown}
+              </button>
+            )}
             {!cameraReady && !cameraError && <div className="camera-message">正在打开相机…</div>}
             {cameraError && <div className="camera-message camera-error">{cameraError}</div>}
           </div>
 
-          <div className="camera-controls">
-            <button className="camera-secondary" onClick={() => setCameraFacing((current) => current === "environment" ? "user" : "environment")}>翻转</button>
-            <button className="shutter" aria-label="拍摄照片" onClick={captureGuidedPhoto}><i /></button>
-            <button className="camera-secondary" onClick={() => cameraInputRef.current?.click()}>高清相机</button>
+          <div className="camera-bottom">
+            <div className="timer-options" role="group" aria-label="定时拍照">
+              {([0, 3, 10] as TimerSeconds[]).map((seconds) => (
+                <button
+                  key={seconds}
+                  className={timerSeconds === seconds ? "timer-active" : ""}
+                  aria-pressed={timerSeconds === seconds}
+                  disabled={countdown !== null}
+                  onClick={() => setTimerSeconds(seconds)}
+                >
+                  {seconds === 0 ? "立即" : `${seconds} 秒`}
+                </button>
+              ))}
+            </div>
+            <div className="camera-controls">
+              <button
+                className="camera-secondary"
+                disabled={countdown !== null}
+                onClick={() => setCameraFacing((current) => current === "environment" ? "user" : "environment")}
+              >
+                翻转
+              </button>
+              <button
+                className={`shutter ${countdown !== null ? "shutter-counting" : ""}`}
+                aria-label={countdown !== null ? "取消倒计时" : "拍摄照片"}
+                onClick={startTimedCapture}
+              >
+                <i />
+              </button>
+              <button
+                className="camera-secondary"
+                disabled={countdown !== null}
+                onClick={() => cameraInputRef.current?.click()}
+              >
+                高清相机
+              </button>
+            </div>
           </div>
         </section>
       )}

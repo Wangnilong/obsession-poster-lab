@@ -286,6 +286,18 @@ h1 em {
 .quality-good { color: #b39a68; }
 .quality-low { color: #bd665d; }
 
+.ai-adjusted-badge {
+  width: fit-content;
+  margin-top: 7px;
+  padding: 4px 7px;
+  border: 1px solid rgba(143, 167, 120, 0.38);
+  border-radius: 999px;
+  color: #9eae8e;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}
+
 .workbench {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(310px, 0.65fr);
@@ -515,7 +527,7 @@ footer p {
 
 .camera-viewport {
   position: relative;
-  width: min(560px, 100%, calc((100dvh - 162px) * 0.707));
+  width: min(560px, 100%, calc((100dvh - 218px) * 0.707));
   margin: 0 auto;
   overflow: hidden;
   aspect-ratio: 3508 / 4961;
@@ -538,19 +550,6 @@ footer p {
   inset: 0;
   pointer-events: none;
   box-shadow: inset 0 0 88px rgba(0, 0, 0, 0.42);
-}
-
-.guide-instruction {
-  position: absolute;
-  z-index: 8;
-  top: 2.8%;
-  left: 50%;
-  transform: translateX(-50%);
-  color: rgba(255, 242, 231, 0.86);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-shadow: 0 1px 8px #000;
-  white-space: nowrap;
 }
 
 .guide-bouquet {
@@ -607,6 +606,18 @@ footer p {
   bottom: -55%;
   height: 55%;
   border-left: 1px dashed rgba(255, 72, 55, 0.45);
+}
+
+.guide-good .guide-face,
+.guide-good .guide-vase,
+.guide-good .guide-bouquet {
+  border-color: rgba(166, 205, 137, 0.88);
+  box-shadow: 0 0 22px rgba(130, 180, 96, 0.1);
+}
+
+.guide-good .guide-hand {
+  opacity: 0.84;
+  filter: sepia(0.2) hue-rotate(35deg) saturate(0.7);
 }
 
 .guide-vase {
@@ -780,9 +791,116 @@ footer p {
   color: #d98f84;
 }
 
+.pose-feedback {
+  position: absolute;
+  z-index: 12;
+  top: 2.2%;
+  left: 50%;
+  max-width: 88%;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(238, 229, 216, 0.2);
+  border-radius: 999px;
+  color: rgba(255, 244, 232, 0.9);
+  background: rgba(6, 7, 6, 0.74);
+  backdrop-filter: blur(8px);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pose-feedback i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #b27f5e;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.pose-feedback-good {
+  border-color: rgba(151, 188, 122, 0.5);
+  color: #dfead6;
+}
+
+.pose-feedback-good i { background: #92bd72; }
+.pose-feedback-adjust i { background: #e75b46; }
+.pose-feedback-missing { color: #c8beb1; }
+
+.camera-countdown {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  color: #f04634;
+  background: rgba(0, 0, 0, 0.18);
+  font-family: "Anton", Impact, sans-serif;
+  font-size: clamp(90px, 28vw, 180px);
+  line-height: 1;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
+  cursor: pointer;
+  animation: countdown-pop 0.28s ease-out;
+}
+
+@keyframes countdown-pop {
+  from { transform: scale(0.78); opacity: 0.2; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.camera-bottom {
+  width: min(560px, 100%);
+  min-height: 142px;
+  margin: 0 auto;
+  display: grid;
+  align-content: center;
+}
+
+.timer-options {
+  width: fit-content;
+  display: flex;
+  gap: 3px;
+  margin: 4px auto 0;
+  padding: 3px;
+  border: 1px solid rgba(230, 223, 211, 0.13);
+  border-radius: 999px;
+  background: #0a0b0a;
+}
+
+.timer-options button {
+  min-width: 54px;
+  min-height: 27px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 999px;
+  color: #6f6d67;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.timer-options button.timer-active {
+  color: #f0e8dd;
+  background: #282927;
+}
+
+.timer-options button:disabled,
+.camera-secondary:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
 .camera-controls {
   width: min(560px, 100%);
-  min-height: 86px;
+  min-height: 82px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr 76px 1fr;
@@ -817,6 +935,12 @@ footer p {
   height: 50px;
   border-radius: 50%;
   background: var(--red);
+}
+
+.shutter-counting i {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
 }
 
 @media (max-width: 900px) {
