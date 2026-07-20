@@ -151,9 +151,9 @@ function drawDemo(context: CanvasRenderingContext2D, width: number, height: numb
 
 function fitTitle(context: CanvasRenderingContext2D, width: number, height: number) {
   const title = "OBSESSION";
-  let fontSize = height * 0.102;
+  let fontSize = height * 0.124;
   context.font = `${fontSize}px Anton, Impact, sans-serif`;
-  while (context.measureText(title).width > width * 0.79 && fontSize > 16) {
+  while (context.measureText(title).width > width * 0.9 && fontSize > 16) {
     fontSize *= 0.97;
     context.font = `${fontSize}px Anton, Impact, sans-serif`;
   }
@@ -237,14 +237,14 @@ function renderPoster(
   context.fillStyle = vignette;
   context.fillRect(0, 0, width, height);
 
-  const titleY = height * 0.928;
+  const titleY = height * 0.916;
   const fontSize = fitTitle(context, width, height);
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.font = `${fontSize}px Anton, Impact, sans-serif`;
   context.save();
   context.translate(width * 0.5, 0);
-  context.scale(0.86, 1);
+  context.scale(0.96, 1);
   context.shadowColor = "rgba(255, 45, 31, .9)";
   context.shadowBlur = fontSize * 0.16;
   context.fillStyle = "#ee2c20";
@@ -346,6 +346,17 @@ const Control = ({
   </label>
 );
 
+const HandGuide = ({ side }: { side: "left" | "right" }) => (
+  <div className={`guide-hand guide-hand-${side}`}>
+    <i className="hand-palm" />
+    <i className="hand-finger finger-one" />
+    <i className="hand-finger finger-two" />
+    <i className="hand-finger finger-three" />
+    <i className="hand-finger finger-four" />
+    <i className="hand-thumb" />
+  </div>
+);
+
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -356,7 +367,7 @@ export default function Home() {
   const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const [controls, setControls] = useState(DEFAULT_CONTROLS);
   const [fileName, setFileName] = useState("");
-  const [status, setStatus] = useState("上传人物照片，首版滤镜会在本机完成处理。");
+  const [status, setStatus] = useState("还没拍。照片不会离开你的手机。");
   const [quality, setQuality] = useState<{ tone: string; label: string }>({
     tone: "waiting",
     label: "等待原图",
@@ -455,7 +466,7 @@ export default function Home() {
       }
       const face = faces[0].boundingBox;
       const faceCenterY = (face.y + face.height / 2) / image.naturalHeight;
-      const suggestedOffset = clamp((0.3 - faceCenterY) * 160, -70, 70);
+      const suggestedOffset = clamp((0.22 - faceCenterY) * 160, -70, 70);
       setControls((current) => ({ ...current, offsetY: Math.round(suggestedOffset) }));
       setStatus("已识别人脸并自动对齐到海报视觉中心。");
     } catch {
@@ -628,27 +639,24 @@ export default function Home() {
   return (
     <main>
       <header className="topbar">
-        <a className="wordmark" href="#studio" aria-label="Obsession 海报实验室首页">
-          OBSESSION<span> / POSTER LAB</span>
+        <a className="wordmark" href="#booth" aria-label="Obsession 拍照亭首页">
+          OBSESSION
         </a>
-        <div className="privacy-pill"><i /> 照片仅在本机处理</div>
+        <div className="privacy-pill"><i /> PRIVATE ON DEVICE</div>
       </header>
 
-      <section className="hero" id="studio">
+      <section className="hero" id="booth">
         <div className="hero-copy">
-          <p className="eyebrow">FILM POSTER GENERATOR · FIRST CUT</p>
-          <h1>把人物照片，变成一张<br /><em>令人不安的执念。</em></h1>
-          <p className="intro">
-            参考低照度胶片质感：暖灰背景、压暗肤色、红色边缘光、柔焦与粗颗粒。
-            手机现场拍完立刻处理，标题会固定进入成片，适合直接输出 A3 海报。
-          </p>
+          <p className="eyebrow">OBSESSION PHOTO BOOTH / 01</p>
+          <h1>站进去。<br /><em>拍一张。</em></h1>
+          <p className="intro">花挡住脸，双手抱紧花瓶。剩下的交给暗房。</p>
           <div className="capture-actions">
             <button className="upload-hero" onClick={() => setCameraOpen(true)}>
-              <span>带站位线拍摄</span>
-              <small>花束、双手、花瓶位置实时提示</small>
+              <span>打开相机</span>
+              <small>按原海报站位拍摄</small>
             </button>
             <button className="album-button" onClick={() => fileInputRef.current?.click()}>
-              从相册选择
+              选照片
             </button>
           </div>
           <input
@@ -681,8 +689,8 @@ export default function Home() {
             />
             {!fileName && (
               <div className="demo-note">
-                <span>示意构图</span>
-                上传后替换为你的照片
+                <span>LIVE PREVIEW</span>
+                等你入镜
               </div>
             )}
           </div>
@@ -699,14 +707,14 @@ export default function Home() {
         <div className="controls-panel">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">DARKROOM CONTROLS</p>
-              <h2>暗房调校</h2>
+              <p className="eyebrow">DARKROOM / 02</p>
+              <h2>调到你喜欢。</h2>
             </div>
             <button
               className="text-button"
               onClick={() => setControls(DEFAULT_CONTROLS)}
             >
-              恢复默认
+              还原
             </button>
           </div>
           <div className="control-grid">
@@ -717,50 +725,41 @@ export default function Home() {
             <Control label="左右位置" value={controls.offsetX} min={-100} max={100} suffix="" onChange={(value) => updateControl("offsetX", value)} />
             <Control label="上下位置" value={controls.offsetY} min={-100} max={100} suffix="" onChange={(value) => updateControl("offsetY", value)} />
           </div>
-          <p className="drag-tip">提示：也可以直接拖动预览中的人物调整构图。</p>
+          <p className="drag-tip">直接拖动海报，也能调整人物位置。</p>
         </div>
 
         <aside className="export-panel">
-          <p className="eyebrow">PRINT MASTER</p>
-          <h2>输出打印母版</h2>
+          <p className="eyebrow">TAKE IT / 03</p>
+          <h2>带走海报。</h2>
           <ul>
             <li><strong>尺寸</strong><span>A3 纵向</span></li>
             <li><strong>像素</strong><span>3508 × 4961</span></li>
             <li><strong>精度</strong><span>300 DPI</span></li>
-            <li><strong>标识</strong><span>OBSESSION 固定保留</span></li>
+            <li><strong>标题</strong><span>固定保留</span></li>
           </ul>
           <button className="export-button" onClick={exportPoster} disabled={exporting}>
-            {exporting ? "正在显影…" : "导出 A3 高清 PNG"}
+            {exporting ? "正在显影…" : "下载 A3 打印版"}
           </button>
           <p className="export-note">打印时选择“实际尺寸 / 100%”，关闭打印机的二次缩放。</p>
         </aside>
       </section>
 
-      <section className="shoot-guide">
-        <div>
-          <p className="eyebrow">FOR THE SHOOT</p>
-          <h2>拍摄时这样准备，滤镜效果最好。</h2>
-        </div>
-        <ol>
-          <li><span>01</span><p><strong>花束贴近脸部</strong>让花遮住部分面孔，人物保留神秘感。</p></li>
-          <li><span>02</span><p><strong>穿深色衣服</strong>黑色或深灰能把红色轮廓光衬得更明显。</p></li>
-          <li><span>03</span><p><strong>保留双手</strong>拍到腰部以上，双手与花瓶会形成参考图的核心构图。</p></li>
-        </ol>
+      <section className="shoot-guide" aria-label="拍摄准备">
+        <div className="rule"><span>01</span><strong>花挡脸</strong></div>
+        <div className="rule"><span>02</span><strong>手抱瓶</strong></div>
+        <div className="rule"><span>03</span><strong>穿深色</strong></div>
       </section>
 
       <footer>
-        <span>OBSESSION / POSTER LAB</span>
-        <p>FIRST CUT · 客户端图像处理 · 无需注册</p>
+        <span>OBSESSION</span>
+        <p>PHOTO BOOTH / PRINT A3</p>
       </footer>
 
       {cameraOpen && (
         <section className="camera-overlay" role="dialog" aria-modal="true" aria-label="带站位线拍摄">
           <header className="camera-header">
-            <div>
-              <span>OBSESSION / CAMERA GUIDE</span>
-              <p>把人、花和手放进对应的参考框</p>
-            </div>
-            <button aria-label="关闭相机" onClick={() => setCameraOpen(false)}>关闭</button>
+            <span>OBSESSION</span>
+            <button aria-label="关闭相机" onClick={() => setCameraOpen(false)}>×</button>
           </header>
 
           <div className="camera-viewport">
@@ -772,11 +771,13 @@ export default function Home() {
               className={cameraFacing === "user" ? "camera-mirrored" : ""}
             />
             <div className="composition-guide" aria-hidden="true">
-              <div className="guide-copy">花束遮住部分脸 · 双手进入左右框</div>
-              <div className="guide-face"><span>脸 / 花束</span></div>
-              <div className="guide-vase"><span>花瓶中线</span></div>
-              <div className="guide-hand guide-hand-left"><span>左手</span></div>
-              <div className="guide-hand guide-hand-right"><span>右手</span></div>
+              <div className="guide-instruction">花盖住脸 · 双手抱住瓶身</div>
+              <div className="guide-bouquet" />
+              <div className="guide-face" />
+              <div className="guide-vase"><i /></div>
+              <HandGuide side="left" />
+              <HandGuide side="right" />
+              <div className="guide-title">OBSESSION</div>
               <i className="corner corner-tl" />
               <i className="corner corner-tr" />
               <i className="corner corner-bl" />
@@ -787,15 +788,15 @@ export default function Home() {
           </div>
 
           <div className="camera-controls">
-            <button className="camera-secondary" onClick={() => setCameraFacing((current) => current === "environment" ? "user" : "environment")}>切换镜头</button>
+            <button className="camera-secondary" onClick={() => setCameraFacing((current) => current === "environment" ? "user" : "environment")}>翻转</button>
             <button className="shutter" aria-label="拍摄照片" onClick={captureGuidedPhoto}><i /></button>
-            <button className="camera-secondary" onClick={() => cameraInputRef.current?.click()}>系统高清相机</button>
+            <button className="camera-secondary" onClick={() => cameraInputRef.current?.click()}>高清相机</button>
           </div>
         </section>
       )}
 
       <div className="mobile-capture-bar">
-        <button onClick={() => setCameraOpen(true)}>带站位线拍摄</button>
+        <button onClick={() => setCameraOpen(true)}>拍照</button>
         <button onClick={() => fileInputRef.current?.click()}>相册</button>
       </div>
     </main>
