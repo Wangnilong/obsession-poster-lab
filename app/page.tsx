@@ -292,9 +292,9 @@ function drawDemo(context: CanvasRenderingContext2D, width: number, height: numb
 
 function fitTitle(context: CanvasRenderingContext2D, width: number, height: number) {
   const title = "OBSESSION";
-  let fontSize = height * 0.124;
+  let fontSize = height * 0.11;
   context.font = `${fontSize}px Anton, Impact, sans-serif`;
-  while (context.measureText(title).width > width * 0.9 && fontSize > 16) {
+  while (context.measureText(title).width > width * 0.78 && fontSize > 16) {
     fontSize *= 0.97;
     context.font = `${fontSize}px Anton, Impact, sans-serif`;
   }
@@ -320,10 +320,10 @@ function renderPoster(
     const rect = coverRect(image.naturalWidth, image.naturalHeight, width, height, controls);
     const intensity = controls.intensity / 100;
     context.filter = [
-      `brightness(${0.61 - intensity * 0.1})`,
-      `contrast(${1.16 + intensity * 0.42})`,
-      `saturate(${0.7 - intensity * 0.31})`,
-      `sepia(${0.12 + intensity * 0.24})`,
+      `brightness(${0.9 - intensity * 0.03})`,
+      `contrast(${1.08 + intensity * 0.15})`,
+      `saturate(${0.82 - intensity * 0.23})`,
+      `sepia(${0.1 + intensity * 0.16})`,
       `blur(${Math.max(0.15, width / A3_WIDTH) * 0.9}px)`,
     ].join(" ");
     context.drawImage(image, rect.x, rect.y, rect.width, rect.height);
@@ -333,33 +333,19 @@ function renderPoster(
   }
 
   const warmWash = context.createLinearGradient(0, 0, width, height);
-  warmWash.addColorStop(0, `rgba(111, 93, 67, ${0.17 + controls.intensity / 900})`);
-  warmWash.addColorStop(0.55, "rgba(20, 22, 19, .18)");
-  warmWash.addColorStop(1, "rgba(2, 5, 5, .42)");
+  warmWash.addColorStop(0, `rgba(111, 93, 67, ${0.1 + controls.intensity / 1300})`);
+  warmWash.addColorStop(0.55, "rgba(20, 22, 19, .1)");
+  warmWash.addColorStop(1, "rgba(2, 5, 5, .25)");
   context.globalCompositeOperation = "multiply";
   context.fillStyle = warmWash;
   context.fillRect(0, 0, width, height);
 
   context.globalCompositeOperation = "screen";
-  const faceGlow = context.createRadialGradient(
-    width * 0.5,
-    height * 0.3,
-    0,
-    width * 0.5,
-    height * 0.3,
-    width * 0.36,
-  );
-  faceGlow.addColorStop(0, `rgba(192, 34, 26, ${0.16 + controls.intensity / 540})`);
-  faceGlow.addColorStop(0.48, "rgba(109, 18, 17, .11)");
-  faceGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
-  context.fillStyle = faceGlow;
-  context.fillRect(0, 0, width, height * 0.68);
-
   const handGlow = context.createLinearGradient(0, height * 0.43, width, height * 0.78);
-  handGlow.addColorStop(0, "rgba(190, 31, 24, .17)");
+  handGlow.addColorStop(0, "rgba(171, 38, 31, .08)");
   handGlow.addColorStop(0.42, "rgba(0, 0, 0, 0)");
   handGlow.addColorStop(0.68, "rgba(0, 0, 0, 0)");
-  handGlow.addColorStop(1, "rgba(196, 43, 31, .2)");
+  handGlow.addColorStop(1, "rgba(177, 43, 34, .1)");
   context.fillStyle = handGlow;
   context.fillRect(0, height * 0.36, width, height * 0.46);
 
@@ -373,29 +359,30 @@ function renderPoster(
     width * 0.78,
   );
   vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
-  vignette.addColorStop(0.65, `rgba(0, 0, 0, ${controls.vignette / 520})`);
-  vignette.addColorStop(1, `rgba(0, 0, 0, ${0.55 + controls.vignette / 260})`);
+  vignette.addColorStop(0.65, `rgba(0, 0, 0, ${controls.vignette / 900})`);
+  vignette.addColorStop(1, `rgba(0, 0, 0, ${0.34 + controls.vignette / 600})`);
   context.fillStyle = vignette;
   context.fillRect(0, 0, width, height);
 
-  const titleY = height * 0.916;
+  const titleY = height * 0.922;
   const fontSize = fitTitle(context, width, height);
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.font = `${fontSize}px Anton, Impact, sans-serif`;
   context.save();
   context.translate(width * 0.5, 0);
-  context.scale(0.96, 1);
-  context.shadowColor = "rgba(255, 45, 31, .9)";
-  context.shadowBlur = fontSize * 0.16;
-  context.fillStyle = "#ee2c20";
-  context.filter = `blur(${fontSize * 0.025}px)`;
+  context.scale(0.965, 1);
+  context.shadowColor = "rgba(117, 16, 12, .38)";
+  context.shadowBlur = fontSize * 0.035;
+  context.fillStyle = "#d92f26";
+  context.filter = `blur(${fontSize * 0.016}px)`;
   context.fillText("OBSESSION", 0, titleY);
-  context.filter = "none";
   context.shadowBlur = 0;
-  context.globalAlpha = 0.82;
-  context.fillStyle = "#ff3e2d";
-  context.fillText("OBSESSION", 0, titleY - fontSize * 0.015);
+  context.globalAlpha = 0.46;
+  context.fillStyle = "#ed3b30";
+  context.filter = `blur(${fontSize * 0.006}px)`;
+  context.fillText("OBSESSION", 0, titleY - fontSize * 0.008);
+  context.filter = "none";
   context.globalAlpha = 1;
   context.restore();
 
