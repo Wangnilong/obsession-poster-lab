@@ -2,7 +2,6 @@
 
 import {
   ChangeEvent,
-  PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useRef,
@@ -13,6 +12,8 @@ const A3_WIDTH = 3508;
 const A3_HEIGHT = 4961;
 const PREVIEW_WIDTH = 707;
 const PREVIEW_HEIGHT = 1000;
+const MAX_WORKING_PIXELS = 12_000_000;
+const MAX_WORKING_EDGE = 4200;
 
 type Controls = {
   intensity: number;
@@ -21,6 +22,14 @@ type Controls = {
   scale: number;
   offsetX: number;
   offsetY: number;
+};
+
+type ToneProfile = {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  sepia: number;
+  warmth: number;
 };
 
 type PoseLandmark = {
@@ -66,8 +75,211 @@ const DEFAULT_CONTROLS: Controls = {
   offsetY: 0,
 };
 
+const DEFAULT_TONE_PROFILE: ToneProfile = {
+  brightness: 0.62,
+  contrast: 1.12,
+  saturation: 0.72,
+  sepia: 0.12,
+  warmth: 0.04,
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+type ImageDimensions = { width: number; height: number };
+
+async function readImageDimensions(file: File): Promise<ImageDimensions | null> {
+  const bytes = new Uint8Array(
+    await file.slice(0, Math.min(file.size, 1024 * 1024)).arrayBuffer(),
+  );
+
+  if (
+    bytes.length >= 24 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return { width: view.getUint32(16), height: view.getUint32(20) };
+  }
+
+  if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    const startOfFrame = new Set([
+      0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd,
+      0xce, 0xcf,
+    ]);
+    let offset = 2;
+    while (offset + 8 < bytes.length) {
+      if (bytes[offset] !== 0xff) {
+        offset += 1;
+        continue;
+      }
+      const marker = bytes[offset + 1];
+      if (marker === 0xd8 || marker === 0xd9) {
+        offset += 2;
+        continue;
+      }
+      const segmentLength = (bytes[offset + 2] << 8) | bytes[offset + 3];
+      if (segmentLength < 2) break;
+      if (startOfFrame.has(marker) && offset + 8 < bytes.length) {
+        return {
+          height: (bytes[offset + 5] << 8) | bytes[offset + 6],
+          width: (bytes[offset + 7] << 8) | bytes[offset + 8],
+        };
+      }
+      offset += segmentLength + 2;
+    }
+  }
+
+  if (
+    bytes.length >= 30 &&
+    String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
+    String.fromCharCode(...bytes.slice(8, 12)) === "WEBP"
+  ) {
+    const chunk = String.fromCharCode(...bytes.slice(12, 16));
+    if (chunk === "VP8X") {
+      return {
+        width: 1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16),
+        height: 1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16),
+      };
+    }
+    if (chunk === "VP8 " && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) {
+      return {
+        width: (bytes[26] | (bytes[27] << 8)) & 0x3fff,
+        height: (bytes[28] | (bytes[29] << 8)) & 0x3fff,
+      };
+    }
+    if (chunk === "VP8L" && bytes[20] === 0x2f) {
+      return {
+        width: 1 + bytes[21] + ((bytes[22] & 0x3f) << 8),
+        height: 1 + (bytes[22] >> 6) + (bytes[23] << 2) + ((bytes[24] & 0x0f) << 10),
+      };
+    }
+  }
+
+  return null;
+}
+
+async function prepareWorkingImage(file: File) {
+  const dimensions = await readImageDimensions(file);
+  if (!dimensions) {
+    throw new Error("Unsupported image metadata");
+  }
+  if (typeof createImageBitmap !== "function") {
+    if (
+      dimensions.width * dimensions.height > MAX_WORKING_PIXELS ||
+      Math.max(dimensions.width, dimensions.height) > MAX_WORKING_EDGE
+    ) {
+      throw new Error("Large image resize unsupported");
+    }
+    return { blob: file as Blob, dimensions, reduced: false };
+  }
+
+  const pixelScale = Math.sqrt(
+    MAX_WORKING_PIXELS / (dimensions.width * dimensions.height),
+  );
+  const edgeScale = MAX_WORKING_EDGE / Math.max(dimensions.width, dimensions.height);
+  const scale = Math.min(1, pixelScale, edgeScale);
+  if (scale >= 1) {
+    return { blob: file as Blob, dimensions, reduced: false };
+  }
+
+  const resizeWidth = Math.max(1, Math.round(dimensions.width * scale));
+  const resizeHeight = Math.max(1, Math.round(dimensions.height * scale));
+  const bitmap = await createImageBitmap(file, {
+    imageOrientation: "from-image",
+    resizeWidth,
+    resizeHeight,
+    resizeQuality: "high",
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) {
+    bitmap.close();
+    throw new Error("Image canvas unavailable");
+  }
+  context.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (result) => (result ? resolve(result) : reject(new Error("Image resize failed"))),
+      "image/jpeg",
+      0.94,
+    );
+  });
+  canvas.width = 1;
+  canvas.height = 1;
+  return { blob, dimensions, reduced: true };
+}
+
+function imageFromBlob(blob: Blob) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(blob);
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Image decode failed"));
+    };
+    image.src = url;
+  });
+}
+
+function analyzeImageTone(image: HTMLImageElement): ToneProfile {
+  const sample = document.createElement("canvas");
+  const longestEdge = 180;
+  const scale = longestEdge / Math.max(image.naturalWidth, image.naturalHeight);
+  sample.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  sample.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = sample.getContext("2d", { willReadFrequently: true });
+  if (!context) return DEFAULT_TONE_PROFILE;
+  context.drawImage(image, 0, 0, sample.width, sample.height);
+
+  const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
+  const luminance: number[] = [];
+  let saturationTotal = 0;
+  let redTotal = 0;
+  let blueTotal = 0;
+  for (let index = 0; index < pixels.length; index += 16) {
+    const red = pixels[index];
+    const green = pixels[index + 1];
+    const blue = pixels[index + 2];
+    const maximum = Math.max(red, green, blue);
+    const minimum = Math.min(red, green, blue);
+    luminance.push((red * 0.2126 + green * 0.7152 + blue * 0.0722) / 255);
+    saturationTotal += (maximum - minimum) / Math.max(1, maximum);
+    redTotal += red;
+    blueTotal += blue;
+  }
+  luminance.sort((left, right) => left - right);
+  if (!luminance.length) return DEFAULT_TONE_PROFILE;
+
+  const percentile = (amount: number) =>
+    luminance[Math.floor((luminance.length - 1) * amount)];
+  const shadow = percentile(0.1);
+  const highlight = percentile(0.9);
+  const sourceRange = Math.max(0.16, highlight - shadow);
+  const sourceSaturation = saturationTotal / luminance.length;
+  const sourceWarmth = (redTotal - blueTotal) / luminance.length / 255;
+
+  // The reference poster measures roughly P10 .05, P90 .41 and R-B .064.
+  // Keep the central subject readable, while making the global result slightly
+  // darker than the measured highlight level so bright phone photos do not look grey.
+  return {
+    brightness: clamp(0.4 / Math.max(0.22, highlight), 0.44, 1.12),
+    contrast: clamp(0.34 / sourceRange, 0.96, 1.48),
+    saturation: clamp(0.27 / Math.max(0.12, sourceSaturation), 0.56, 1.04),
+    sepia: clamp(0.08 + Math.max(0, 0.064 - sourceWarmth) * 1.4, 0.06, 0.2),
+    warmth: clamp((0.064 - sourceWarmth) * 1.6, 0, 0.1),
+  };
 }
 
 function isVisible(point?: PoseLandmark, minimum = 0.42) {
@@ -235,61 +447,6 @@ function seededNoise(size: number, amount: number) {
   return tile;
 }
 
-function drawDemo(context: CanvasRenderingContext2D, width: number, height: number) {
-  const windowGlow = context.createLinearGradient(0, 0, width, height * 0.5);
-  windowGlow.addColorStop(0, "#6d6653");
-  windowGlow.addColorStop(0.36, "#b29c76");
-  windowGlow.addColorStop(0.65, "#6d7065");
-  windowGlow.addColorStop(1, "#262824");
-  context.fillStyle = windowGlow;
-  context.fillRect(0, 0, width, height * 0.54);
-
-  context.fillStyle = "rgba(8, 9, 8, .94)";
-  context.beginPath();
-  context.ellipse(width * 0.5, height * 0.63, width * 0.54, height * 0.49, 0, 0, Math.PI * 2);
-  context.fill();
-
-  context.fillStyle = "#0a0b0a";
-  context.beginPath();
-  context.ellipse(width * 0.5, height * 0.25, width * 0.18, height * 0.16, 0, 0, Math.PI * 2);
-  context.fill();
-
-  const blooms = [
-    [0.37, 0.22, 0.105],
-    [0.49, 0.2, 0.12],
-    [0.62, 0.23, 0.11],
-    [0.43, 0.3, 0.1],
-    [0.57, 0.3, 0.095],
-  ];
-  blooms.forEach(([x, y, radius], index) => {
-    const bloom = context.createRadialGradient(
-      width * x,
-      height * y,
-      0,
-      width * x,
-      height * y,
-      width * radius,
-    );
-    bloom.addColorStop(0, index % 2 ? "#6f2826" : "#4d1719");
-    bloom.addColorStop(0.45, "#381416");
-    bloom.addColorStop(1, "rgba(10, 8, 8, 0)");
-    context.fillStyle = bloom;
-    context.beginPath();
-    context.arc(width * x, height * y, width * radius, 0, Math.PI * 2);
-    context.fill();
-  });
-
-  context.strokeStyle = "rgba(177, 72, 61, .32)";
-  context.lineWidth = width * 0.028;
-  context.lineCap = "round";
-  context.beginPath();
-  context.moveTo(width * 0.31, height * 0.65);
-  context.quadraticCurveTo(width * 0.39, height * 0.53, width * 0.48, height * 0.66);
-  context.moveTo(width * 0.69, height * 0.65);
-  context.quadraticCurveTo(width * 0.61, height * 0.53, width * 0.52, height * 0.66);
-  context.stroke();
-}
-
 function fitTitle(context: CanvasRenderingContext2D, width: number, height: number) {
   const title = "OBSESSION";
   let fontSize = height * 0.11;
@@ -307,6 +464,7 @@ function renderPoster(
   height: number,
   image: HTMLImageElement | null,
   controls: Controls,
+  toneProfile: ToneProfile,
 ) {
   canvas.width = width;
   canvas.height = height;
@@ -319,50 +477,99 @@ function renderPoster(
   if (image) {
     const rect = coverRect(image.naturalWidth, image.naturalHeight, width, height, controls);
     const intensity = controls.intensity / 100;
+    const brightness = 1 + (toneProfile.brightness - 1) * intensity;
+    const contrast = 1 + (toneProfile.contrast - 1) * intensity;
+    const saturation = 1 + (toneProfile.saturation - 1) * intensity;
     context.filter = [
-      `brightness(${0.9 - intensity * 0.03})`,
-      `contrast(${1.08 + intensity * 0.15})`,
-      `saturate(${0.82 - intensity * 0.23})`,
-      `sepia(${0.1 + intensity * 0.16})`,
-      `blur(${Math.max(0.15, width / A3_WIDTH) * 0.9}px)`,
+      `brightness(${brightness})`,
+      `contrast(${contrast})`,
+      `saturate(${saturation})`,
+      `sepia(${toneProfile.sepia * intensity})`,
+      `blur(${Math.max(0.12, width / A3_WIDTH) * 0.62}px)`,
     ].join(" ");
     context.drawImage(image, rect.x, rect.y, rect.width, rect.height);
     context.filter = "none";
-  } else {
-    drawDemo(context, width, height);
+
+    context.save();
+    context.globalCompositeOperation = "screen";
+    context.globalAlpha = 0.035 + intensity * 0.045;
+    context.filter = [
+      "brightness(0.62)",
+      "contrast(1.18)",
+      "saturate(0.42)",
+      "hue-rotate(168deg)",
+      `blur(${Math.max(0.35, width / A3_WIDTH) * 1.25}px)`,
+    ].join(" ");
+    const ghostExposure = width * 0.006;
+    context.drawImage(
+      image,
+      rect.x + ghostExposure,
+      rect.y - ghostExposure * 0.45,
+      rect.width,
+      rect.height,
+    );
+    context.restore();
   }
 
   const warmWash = context.createLinearGradient(0, 0, width, height);
-  warmWash.addColorStop(0, `rgba(111, 93, 67, ${0.1 + controls.intensity / 1300})`);
-  warmWash.addColorStop(0.55, "rgba(20, 22, 19, .1)");
-  warmWash.addColorStop(1, "rgba(2, 5, 5, .25)");
+  warmWash.addColorStop(
+    0,
+    `rgba(90, 79, 61, ${0.035 + controls.intensity / 2200 + toneProfile.warmth})`,
+  );
+  warmWash.addColorStop(0.55, "rgba(18, 20, 17, .07)");
+  warmWash.addColorStop(1, "rgba(2, 4, 4, .16)");
   context.globalCompositeOperation = "multiply";
   context.fillStyle = warmWash;
   context.fillRect(0, 0, width, height);
 
-  context.globalCompositeOperation = "screen";
-  const handGlow = context.createLinearGradient(0, height * 0.43, width, height * 0.78);
-  handGlow.addColorStop(0, "rgba(171, 38, 31, .08)");
-  handGlow.addColorStop(0.42, "rgba(0, 0, 0, 0)");
-  handGlow.addColorStop(0.68, "rgba(0, 0, 0, 0)");
-  handGlow.addColorStop(1, "rgba(177, 43, 34, .1)");
-  context.fillStyle = handGlow;
-  context.fillRect(0, height * 0.36, width, height * 0.46);
-
   context.globalCompositeOperation = "source-over";
-  const vignette = context.createRadialGradient(
-    width * 0.5,
-    height * 0.42,
-    width * 0.12,
-    width * 0.5,
-    height * 0.43,
+  context.save();
+  context.translate(width * 0.5, height * 0.43);
+  context.scale(1, 1.28);
+  const subjectFalloff = context.createRadialGradient(
+    0,
+    0,
+    width * 0.17,
+    0,
+    0,
     width * 0.78,
   );
-  vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
-  vignette.addColorStop(0.65, `rgba(0, 0, 0, ${controls.vignette / 900})`);
-  vignette.addColorStop(1, `rgba(0, 0, 0, ${0.34 + controls.vignette / 600})`);
-  context.fillStyle = vignette;
-  context.fillRect(0, 0, width, height);
+  subjectFalloff.addColorStop(0, "rgba(0, 0, 0, 0)");
+  subjectFalloff.addColorStop(0.44, "rgba(0, 0, 0, 0)");
+  subjectFalloff.addColorStop(0.66, `rgba(0, 0, 0, ${0.22 + controls.vignette / 900})`);
+  subjectFalloff.addColorStop(1, `rgba(0, 0, 0, ${0.5 + controls.vignette / 225})`);
+  context.fillStyle = subjectFalloff;
+  context.fillRect(-width, -height, width * 2, height * 2);
+  context.restore();
+
+  if (image) {
+    const handLightStrength = 0.065 + (controls.intensity / 100) * 0.045;
+    const paintHandLight = (centerX: number, centerY: number) => {
+      context.save();
+      context.translate(width * centerX, height * centerY);
+      context.scale(1, 1.22);
+      context.globalCompositeOperation = "screen";
+      const handLight = context.createRadialGradient(
+        0,
+        0,
+        width * 0.015,
+        0,
+        0,
+        width * 0.19,
+      );
+      handLight.addColorStop(0, `rgba(226, 211, 188, ${handLightStrength})`);
+      handLight.addColorStop(0.42, `rgba(177, 112, 91, ${handLightStrength * 0.72})`);
+      handLight.addColorStop(0.74, `rgba(126, 35, 31, ${handLightStrength * 0.34})`);
+      handLight.addColorStop(1, "rgba(0, 0, 0, 0)");
+      context.fillStyle = handLight;
+      context.beginPath();
+      context.arc(0, 0, width * 0.2, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+    };
+    paintHandLight(0.29, 0.61);
+    paintHandLight(0.71, 0.61);
+  }
 
   const titleY = height * 0.922;
   const fontSize = fitTitle(context, width, height);
@@ -373,14 +580,14 @@ function renderPoster(
   context.translate(width * 0.5, 0);
   context.scale(0.965, 1);
   context.shadowColor = "rgba(117, 16, 12, .38)";
-  context.shadowBlur = fontSize * 0.035;
+  context.shadowBlur = fontSize * 0.05;
   context.fillStyle = "#d92f26";
-  context.filter = `blur(${fontSize * 0.016}px)`;
+  context.filter = `blur(${fontSize * 0.022}px)`;
   context.fillText("OBSESSION", 0, titleY);
   context.shadowBlur = 0;
-  context.globalAlpha = 0.46;
+  context.globalAlpha = 0.4;
   context.fillStyle = "#ed3b30";
-  context.filter = `blur(${fontSize * 0.006}px)`;
+  context.filter = `blur(${fontSize * 0.01}px)`;
   context.fillText("OBSESSION", 0, titleY - fontSize * 0.008);
   context.filter = "none";
   context.globalAlpha = 1;
@@ -498,8 +705,9 @@ export default function Home() {
   const poseFrameRef = useRef<number | null>(null);
   const lastPoseVideoTimeRef = useRef(-1);
   const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
+  const imageLoadIdRef = useRef(0);
   const [controls, setControls] = useState(DEFAULT_CONTROLS);
+  const [toneProfile, setToneProfile] = useState(DEFAULT_TONE_PROFILE);
   const [fileName, setFileName] = useState("");
   const [status, setStatus] = useState("还没拍。照片不会离开你的手机。");
   const [quality, setQuality] = useState<{ tone: string; label: string }>({
@@ -533,8 +741,9 @@ export default function Home() {
       PREVIEW_HEIGHT,
       imageRef.current,
       controls,
+      toneProfile,
     );
-  }, [controls, fileName, fontReady]);
+  }, [controls, fileName, fontReady, toneProfile]);
 
   useEffect(() => {
     void document.fonts.load('96px "Anton"').then(() => setFontReady(true));
@@ -720,7 +929,7 @@ export default function Home() {
     const Detector = (window as typeof window & { FaceDetector?: FaceDetectorConstructor })
       .FaceDetector;
     if (!Detector) {
-      setStatus("已使用海报默认构图。可拖动画面或用滑杆微调人物位置。");
+      setStatus("已按原版计算色调。可拖动画面或用滑杆微调人物位置。");
       return;
     }
 
@@ -728,21 +937,21 @@ export default function Home() {
       const detector = new Detector({ fastMode: true, maxDetectedFaces: 1 });
       const faces = await detector.detect(image);
       if (!faces.length) {
-        setStatus("未识别人脸（被花遮住也可能发生），已保留居中构图。");
+        setStatus("已按原版计算整张照片的色调，并保留居中构图。");
         return;
       }
       const face = faces[0].boundingBox;
       const faceCenterY = (face.y + face.height / 2) / image.naturalHeight;
       const suggestedOffset = clamp((0.22 - faceCenterY) * 160, -70, 70);
       setControls((current) => ({ ...current, offsetY: Math.round(suggestedOffset) }));
-      setStatus("已识别人脸并自动对齐到海报视觉中心。");
+      setStatus("已对齐人物，整张照片的色调也已按原版重算。");
     } catch {
-      setStatus("已使用海报默认构图。可拖动画面或用滑杆微调人物位置。");
+      setStatus("已按原版计算色调。可拖动画面或用滑杆微调人物位置。");
     }
   }, []);
 
   const loadFile = useCallback(
-    (file: File, poseForAdjustment?: PoseLandmark[] | null) => {
+    async (file: File, poseForAdjustment?: PoseLandmark[] | null) => {
       if (!file.type.startsWith("image/")) {
         setStatus("请选择 JPG、PNG 或 WebP 图片。");
         return;
@@ -752,18 +961,25 @@ export default function Home() {
         return;
       }
 
-      const image = new Image();
-      const url = URL.createObjectURL(file);
-      image.onload = () => {
+      const loadId = ++imageLoadIdRef.current;
+      setStatus("正在安全处理照片……");
+      try {
+        const prepared = await prepareWorkingImage(file);
+        if (loadId !== imageLoadIdRef.current) return;
+        const image = await imageFromBlob(prepared.blob);
+        if (loadId !== imageLoadIdRef.current) return;
         imageRef.current = image;
+        setToneProfile(analyzeImageTone(image));
         setFileName(file.name);
         const aiControls = poseForAdjustment
           ? controlsFromPose(poseForAdjustment)
           : null;
         setControls(aiControls ?? DEFAULT_CONTROLS);
         setAiAdjusted(Boolean(aiControls));
-        const megapixels = (image.naturalWidth * image.naturalHeight) / 1_000_000;
-        if (megapixels >= 16 && Math.max(image.naturalWidth, image.naturalHeight) >= 4800) {
+        const sourceWidth = prepared.dimensions?.width ?? image.naturalWidth;
+        const sourceHeight = prepared.dimensions?.height ?? image.naturalHeight;
+        const megapixels = (sourceWidth * sourceHeight) / 1_000_000;
+        if (megapixels >= 16 && Math.max(sourceWidth, sourceHeight) >= 4800) {
           setQuality({ tone: "excellent", label: `原图 ${megapixels.toFixed(1)}MP · A3 优秀` });
         } else if (megapixels >= 10) {
           setQuality({ tone: "good", label: `原图 ${megapixels.toFixed(1)}MP · A3 可用` });
@@ -771,25 +987,35 @@ export default function Home() {
           setQuality({ tone: "low", label: `原图 ${megapixels.toFixed(1)}MP · 建议换高清图` });
         }
         if (aiControls) {
-          setStatus("AI 已校正人物大小和位置，滤镜也已套用。");
+          setStatus("人物位置已校正，整张照片的色调也已按原版重算。");
         } else {
-          setStatus("照片已载入，正在检查人物位置……");
+          setStatus(
+            prepared.reduced
+              ? "照片已安全优化，正在检查人物位置……"
+              : "照片已载入，正在检查人物位置……",
+          );
           void autoAlign(image);
         }
-        URL.revokeObjectURL(url);
-      };
-      image.onerror = () => {
-        setStatus("这张图片无法读取，请换一张试试。");
-        URL.revokeObjectURL(url);
-      };
-      image.src = url;
+      } catch (error) {
+        if (loadId !== imageLoadIdRef.current) return;
+        if (
+          error instanceof Error &&
+          (error.message === "Unsupported image metadata" ||
+            error.message === "Large image resize unsupported")
+        ) {
+          setStatus("为避免页面崩溃，请把这张照片转成 JPG 后再选一次。");
+        } else {
+          setStatus("这张图片无法读取，请换一张试试。");
+        }
+      }
     },
     [autoAlign],
   );
 
   const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) loadFile(file);
+    event.target.value = "";
+    if (file) void loadFile(file);
   };
 
   const capturePhotoNow = useCallback(() => {
@@ -842,7 +1068,7 @@ export default function Home() {
           setCameraError("照片没有保存成功，请再拍一次。");
           return;
         }
-        loadFile(
+        void loadFile(
           new File([blob], `obsession-camera-${Date.now()}.jpg`, { type: "image/jpeg" }),
           capturedPose,
         );
@@ -884,33 +1110,6 @@ export default function Home() {
     countdownTimeoutRef.current = setTimeout(tick, 1000);
   }, [capturePhotoNow, clearCountdown, countdown, timerSeconds]);
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (!imageRef.current) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      offsetX: controls.offsetX,
-      offsetY: controls.offsetY,
-    };
-  };
-
-  const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (!dragRef.current) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const dx = ((event.clientX - dragRef.current.x) / rect.width) * 160;
-    const dy = ((event.clientY - dragRef.current.y) / rect.height) * 160;
-    setControls((current) => ({
-      ...current,
-      offsetX: clamp(Math.round(dragRef.current!.offsetX + dx), -100, 100),
-      offsetY: clamp(Math.round(dragRef.current!.offsetY + dy), -100, 100),
-    }));
-  };
-
-  const stopDragging = () => {
-    dragRef.current = null;
-  };
-
   const exportPoster = async () => {
     if (!imageRef.current) {
       setStatus("请先上传人物照片，再导出正式海报。");
@@ -925,7 +1124,14 @@ export default function Home() {
     try {
       await document.fonts.load('256px "Anton"');
       const exportCanvas = document.createElement("canvas");
-      renderPoster(exportCanvas, A3_WIDTH, A3_HEIGHT, imageRef.current, controls);
+      renderPoster(
+        exportCanvas,
+        A3_WIDTH,
+        A3_HEIGHT,
+        imageRef.current,
+        controls,
+        toneProfile,
+      );
       const rawBlob = await new Promise<Blob>((resolve, reject) => {
         exportCanvas.toBlob(
           (blob) => (blob ? resolve(blob) : reject(new Error("Export failed"))),
@@ -991,17 +1197,15 @@ export default function Home() {
           <div className="poster-frame">
             <canvas
               ref={canvasRef}
+              className={!fileName ? "poster-canvas-hidden" : ""}
               aria-label="Obsession 海报实时预览"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={stopDragging}
-              onPointerCancel={stopDragging}
             />
             {!fileName && (
-              <div className="demo-note">
-                <span>LIVE PREVIEW</span>
-                等你入镜
-              </div>
+              <img
+                className="poster-original-preview"
+                src="./original-poster.png"
+                alt="原版 Obsession 海报构图参考"
+              />
             )}
           </div>
           <div className="poster-meta">
@@ -1036,7 +1240,7 @@ export default function Home() {
             <Control label="左右位置" value={controls.offsetX} min={-100} max={100} suffix="" onChange={(value) => updateControl("offsetX", value)} />
             <Control label="上下位置" value={controls.offsetY} min={-100} max={100} suffix="" onChange={(value) => updateControl("offsetY", value)} />
           </div>
-          <p className="drag-tip">直接拖动海报，也能调整人物位置。</p>
+          <p className="drag-tip">用人物大小、左右位置和上下位置调整构图。</p>
         </div>
 
         <aside className="export-panel">

@@ -22,6 +22,7 @@ test("server-renders the Obsession photo booth", async () => {
   const html = await response.text();
   assert.match(html, /OBSESSION Poster Lab/);
   assert.match(html, /打开相机/);
+  assert.match(html, /original-poster\.png/);
   assert.match(html, /3508 × 4961/);
   assert.match(html, /下载 A3 打印版/);
 });
@@ -35,8 +36,24 @@ test("keeps pose AI and its runtime assets on-device", async () => {
 
   assert.match(page, /@mediapipe\/tasks-vision/);
   assert.match(page, /detectForVideo/);
-  assert.match(page, /AI 已校正人物大小和位置/);
+  assert.match(page, /controlsFromPose/);
   assert.match(page, /\(\[0, 3, 10\] as TimerSeconds\[\]\)/);
   assert.ok(model.size > 5_000_000);
   assert.ok(wasm.size > 10_000_000);
+});
+
+test("keeps large uploads memory-safe and the subject locally exposed", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /MAX_WORKING_PIXELS = 12_000_000/);
+  assert.match(page, /prepareWorkingImage/);
+  assert.match(page, /analyzeImageTone/);
+  assert.match(page, /0\.4 \/ Math\.max\(0\.22, highlight\)/);
+  assert.doesNotMatch(page, /setPointerCapture/);
+  assert.match(page, /subjectFalloff/);
+  assert.match(page, /ghostExposure/);
+  assert.match(page, /hue-rotate\(168deg\)/);
+  assert.match(page, /paintHandLight\(0\.29, 0\.61\)/);
+  assert.match(page, /paintHandLight\(0\.71, 0\.61\)/);
+  assert.doesNotMatch(page, /handGlow/);
 });

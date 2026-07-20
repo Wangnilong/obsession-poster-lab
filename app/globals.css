@@ -237,30 +237,21 @@ h1 em {
   height: auto;
   aspect-ratio: 3508 / 4961;
   background: #090a09;
-  cursor: grab;
-  touch-action: none;
+  cursor: default;
+  touch-action: pan-y;
 }
 
-.poster-frame canvas:active {
-  cursor: grabbing;
+.poster-frame canvas.poster-canvas-hidden {
+  display: none;
 }
 
-.demo-note {
-  position: absolute;
-  top: 19px;
-  right: 19px;
-  padding: 7px 9px;
-  color: #89857d;
-  background: rgba(6, 7, 6, 0.76);
-  border: 1px solid rgba(230, 223, 211, 0.13);
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 7px;
-  line-height: 1.55;
-}
-
-.demo-note span {
+.poster-original-preview {
+  width: 100%;
+  height: auto;
   display: block;
-  color: var(--red);
+  aspect-ratio: 3508 / 4961;
+  object-fit: contain;
+  background: #090a09;
 }
 
 .poster-meta {
