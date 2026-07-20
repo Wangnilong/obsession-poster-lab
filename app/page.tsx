@@ -344,6 +344,9 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const [controls, setControls] = useState(DEFAULT_CONTROLS);
   const [fileName, setFileName] = useState("");
@@ -353,6 +356,10 @@ export default function Home() {
     label: "等待原图",
   });
   const [exporting, setExporting] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment");
 
   const updateControl = useCallback((key: keyof Controls, value: number) => {
     setControls((current) => ({ ...current, [key]: value }));
@@ -368,6 +375,57 @@ export default function Home() {
       controls,
     );
   }, [controls, fileName]);
+
+  useEffect(() => {
+    if (!cameraOpen) return;
+    let cancelled = false;
+    document.body.style.overflow = "hidden";
+
+    const stopStream = () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+
+    const startCamera = async () => {
+      stopStream();
+      setCameraReady(false);
+      setCameraError("");
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError("当前浏览器不支持实时取景，请使用系统高清相机。");
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: cameraFacing },
+            width: { ideal: 3840 },
+            height: { ideal: 2160 },
+          },
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+          setCameraReady(true);
+        }
+      } catch {
+        setCameraError("相机没有打开。请允许相机权限，或改用系统高清相机。");
+      }
+    };
+
+    void startCamera();
+    return () => {
+      cancelled = true;
+      stopStream();
+      document.body.style.overflow = "";
+    };
+  }, [cameraOpen, cameraFacing]);
 
   const autoAlign = useCallback(async (image: HTMLImageElement) => {
     const Detector = (window as typeof window & { FaceDetector?: FaceDetectorConstructor })
@@ -435,6 +493,63 @@ export default function Home() {
   const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) loadFile(file);
+  };
+
+  const captureGuidedPhoto = () => {
+    const video = videoRef.current;
+    if (!video || !cameraReady || !video.videoWidth || !video.videoHeight) {
+      setCameraError("相机还在准备，请稍等一秒再拍。");
+      return;
+    }
+
+    const targetRatio = A3_WIDTH / A3_HEIGHT;
+    const sourceRatio = video.videoWidth / video.videoHeight;
+    let sourceX = 0;
+    let sourceY = 0;
+    let sourceWidth = video.videoWidth;
+    let sourceHeight = video.videoHeight;
+
+    if (sourceRatio > targetRatio) {
+      sourceWidth = video.videoHeight * targetRatio;
+      sourceX = (video.videoWidth - sourceWidth) / 2;
+    } else {
+      sourceHeight = video.videoWidth / targetRatio;
+      sourceY = (video.videoHeight - sourceHeight) / 2;
+    }
+
+    const captureCanvas = document.createElement("canvas");
+    captureCanvas.width = Math.max(1, Math.floor(sourceWidth));
+    captureCanvas.height = Math.max(1, Math.floor(sourceHeight));
+    const context = captureCanvas.getContext("2d");
+    if (!context) return;
+
+    if (cameraFacing === "user") {
+      context.translate(captureCanvas.width, 0);
+      context.scale(-1, 1);
+    }
+    context.drawImage(
+      video,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      captureCanvas.width,
+      captureCanvas.height,
+    );
+    captureCanvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setCameraError("照片没有保存成功，请再拍一次。");
+          return;
+        }
+        loadFile(new File([blob], `obsession-camera-${Date.now()}.jpg`, { type: "image/jpeg" }));
+        setCameraOpen(false);
+      },
+      "image/jpeg",
+      0.96,
+    );
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -513,12 +628,25 @@ export default function Home() {
           <h1>把人物照片，变成一张<br /><em>令人不安的执念。</em></h1>
           <p className="intro">
             参考低照度胶片质感：暖灰背景、压暗肤色、红色边缘光、柔焦与粗颗粒。
-            标题会固定进入成片，适合直接输出 A3 海报。
+            手机现场拍完立刻处理，标题会固定进入成片，适合直接输出 A3 海报。
           </p>
-          <button className="upload-hero" onClick={() => fileInputRef.current?.click()}>
-            <span>选择人物照片</span>
-            <small>JPG / PNG / WebP · 建议原图 12MP 以上</small>
-          </button>
+          <div className="capture-actions">
+            <button className="upload-hero" onClick={() => setCameraOpen(true)}>
+              <span>带站位线拍摄</span>
+              <small>花束、双手、花瓶位置实时提示</small>
+            </button>
+            <button className="album-button" onClick={() => fileInputRef.current?.click()}>
+              从相册选择
+            </button>
+          </div>
+          <input
+            ref={cameraInputRef}
+            className="visually-hidden"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFile}
+          />
           <input
             ref={fileInputRef}
             className="visually-hidden"
@@ -612,6 +740,52 @@ export default function Home() {
         <span>OBSESSION / POSTER LAB</span>
         <p>FIRST CUT · 客户端图像处理 · 无需注册</p>
       </footer>
+
+      {cameraOpen && (
+        <section className="camera-overlay" role="dialog" aria-modal="true" aria-label="带站位线拍摄">
+          <header className="camera-header">
+            <div>
+              <span>OBSESSION / CAMERA GUIDE</span>
+              <p>把人、花和手放进对应的参考框</p>
+            </div>
+            <button aria-label="关闭相机" onClick={() => setCameraOpen(false)}>关闭</button>
+          </header>
+
+          <div className="camera-viewport">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className={cameraFacing === "user" ? "camera-mirrored" : ""}
+            />
+            <div className="composition-guide" aria-hidden="true">
+              <div className="guide-copy">花束遮住部分脸 · 双手进入左右框</div>
+              <div className="guide-face"><span>脸 / 花束</span></div>
+              <div className="guide-vase"><span>花瓶中线</span></div>
+              <div className="guide-hand guide-hand-left"><span>左手</span></div>
+              <div className="guide-hand guide-hand-right"><span>右手</span></div>
+              <i className="corner corner-tl" />
+              <i className="corner corner-tr" />
+              <i className="corner corner-bl" />
+              <i className="corner corner-br" />
+            </div>
+            {!cameraReady && !cameraError && <div className="camera-message">正在打开相机…</div>}
+            {cameraError && <div className="camera-message camera-error">{cameraError}</div>}
+          </div>
+
+          <div className="camera-controls">
+            <button className="camera-secondary" onClick={() => setCameraFacing((current) => current === "environment" ? "user" : "environment")}>切换镜头</button>
+            <button className="shutter" aria-label="拍摄照片" onClick={captureGuidedPhoto}><i /></button>
+            <button className="camera-secondary" onClick={() => cameraInputRef.current?.click()}>系统高清相机</button>
+          </div>
+        </section>
+      )}
+
+      <div className="mobile-capture-bar">
+        <button onClick={() => setCameraOpen(true)}>带站位线拍摄</button>
+        <button onClick={() => fileInputRef.current?.click()}>相册</button>
+      </div>
     </main>
   );
 }
