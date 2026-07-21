@@ -8,7 +8,7 @@ export default function SiteHome() {
         <a className="cosmos-mark" href="./" aria-label="Cosmos Film 42 首页">
           <img
             className="cosmos-mark-logo"
-            src="./cosmos-film42-logo.png"
+            src="/cosmos-film42-logo.png"
             width={595}
             height={472}
             alt="宇宙戏映"

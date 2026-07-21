@@ -72,6 +72,8 @@ test("keeps large uploads memory-safe and the subject locally exposed", async ()
   assert.match(page, /paintHandLight\(0\.29, 0\.61\)/);
   assert.match(page, /paintHandLight\(0\.71, 0\.61\)/);
   assert.match(page, /obsession-title\.png/);
+  assert.doesNotMatch(page, /"\.\/obsession-title\.png"/);
+  assert.match(page, /"\/models\/pose_landmarker_lite\.task"/);
   assert.match(page, /createA4Pdf/);
   assert.match(page, /outputProfile === "print"/);
   assert.match(page, /@page\{size:A4 portrait/);

@@ -19,7 +19,7 @@ export const filmProjects: FilmProject[] = [
     title: "OBSESSION",
     chineseTitle: "迷恋",
     year: "2026",
-    poster: "./original-poster.png",
+    poster: "/original-poster.png",
     description: "花挡住脸，双手抱紧花瓶。把自己留在这张电影海报里。",
     experience: "海报暗房",
     status: "live",

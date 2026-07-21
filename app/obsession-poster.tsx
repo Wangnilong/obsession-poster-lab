@@ -856,7 +856,7 @@ export default function ObsessionPoster() {
       brandArtRef.current = brandArt;
       setBrandReady(true);
     };
-    brandArt.src = "./obsession-title.png";
+    brandArt.src = "/obsession-title.png";
     let enteredFrame: number | null = null;
     if (window.sessionStorage.getItem("obsession-entered") === "yes") {
       enteredFrame = window.requestAnimationFrame(() => setExperienceEntered(true));
@@ -886,10 +886,10 @@ export default function ObsessionPoster() {
 
     poseInitRef.current = (async () => {
       const vision = await import("@mediapipe/tasks-vision");
-      const fileset = await vision.FilesetResolver.forVisionTasks("./mediapipe/wasm");
+      const fileset = await vision.FilesetResolver.forVisionTasks("/mediapipe/wasm");
       const options = {
         baseOptions: {
-          modelAssetPath: "./models/pose_landmarker_lite.task",
+          modelAssetPath: "/models/pose_landmarker_lite.task",
           delegate: "GPU" as const,
         },
         runningMode: "VIDEO" as const,
@@ -1444,7 +1444,7 @@ export default function ObsessionPoster() {
           <a className="site-back" href="../" aria-label="返回 Cosmos Film 42 主页">
             <img
               className="site-back-logo"
-              src="./cosmos-film42-logo.png"
+              src="/cosmos-film42-logo.png"
               width={595}
               height={472}
               alt="宇宙戏映"
@@ -1459,7 +1459,7 @@ export default function ObsessionPoster() {
 
       <section className="hero" id="booth">
         <div className="hero-atmosphere" aria-hidden="true">
-          <img src="./original-poster.png" alt="" />
+          <img src="/original-poster.png" alt="" />
         </div>
         <div className="hero-copy">
           <p className="eyebrow">OBSESSION / CAMERA RITUAL 01</p>
@@ -1506,7 +1506,7 @@ export default function ObsessionPoster() {
             {!fileName && (
               <img
                 className="poster-original-preview"
-                src="./original-poster.png"
+                src="/original-poster.png"
                 width={795}
                 height={1194}
                 decoding="async"
