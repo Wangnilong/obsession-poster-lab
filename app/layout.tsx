@@ -18,8 +18,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
   const origin = `${protocol}://${host}`;
-  const title = "OBSESSION Poster Lab — A3 电影海报生成器";
-  const description = "上传人物照片，在浏览器本地生成带 OBSESSION 标识的 A3 300 DPI 电影海报。";
+  const title = "COSMOS FILM 42 — 电影与互动档案";
+  const description = "进入 COSMOS FILM 42 的电影项目、互动页面与海报暗房。";
   const socialImage = `${origin}/og.png`;
 
   return {
@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [{ url: socialImage, width: 1536, height: 1024, alt: "OBSESSION Poster Lab" }],
+      images: [{ url: socialImage, width: 1536, height: 1024, alt: "COSMOS FILM 42" }],
     },
     twitter: {
       card: "summary_large_image",
@@ -50,10 +50,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
-      </body>
+    <html lang="zh-CN" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }

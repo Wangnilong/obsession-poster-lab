@@ -2,34 +2,48 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
+async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
+    new Request(`http://localhost${pathname}`, { headers: { accept: "text/html" } }),
     { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
     { waitUntil() {}, passThroughOnException() {} },
   );
 }
 
-test("server-renders the Obsession photo booth", async () => {
+test("server-renders the reusable Cosmos film index", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /OBSESSION Poster Lab/);
-  assert.match(html, /打开相机/);
+  assert.match(html, /COSMOS FILM 42/);
+  assert.match(html, /电影项目/);
+  assert.match(html, /\.\/obsession\//);
+  assert.match(html, /COMING SOON/);
+});
+
+test("server-renders the Obsession photo booth on its film route", async () => {
+  const response = await render("/obsession");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /OBSESSION/);
+  assert.match(html, /进入相机/);
   assert.match(html, /original-poster\.png/);
   assert.match(html, /3508 × 4961/);
-  assert.match(html, /下载 A3 打印版/);
+  assert.match(html, /2480 × 3508/);
+  assert.match(html, /直接打印 A4/);
+  assert.match(html, /下载 A4 PDF/);
+  assert.match(html, /保存 A3 屏幕版/);
 });
 
 test("keeps pose AI and its runtime assets on-device", async () => {
   const [page, model, wasm] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/obsession-poster.tsx", import.meta.url), "utf8"),
     stat(new URL("../public/models/pose_landmarker_lite.task", import.meta.url)),
     stat(new URL("../public/mediapipe/wasm/vision_wasm_internal.wasm", import.meta.url)),
   ]);
@@ -43,7 +57,7 @@ test("keeps pose AI and its runtime assets on-device", async () => {
 });
 
 test("keeps large uploads memory-safe and the subject locally exposed", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/obsession-poster.tsx", import.meta.url), "utf8");
 
   assert.match(page, /MAX_WORKING_PIXELS = 12_000_000/);
   assert.match(page, /prepareWorkingImage/);
@@ -55,5 +69,8 @@ test("keeps large uploads memory-safe and the subject locally exposed", async ()
   assert.match(page, /hue-rotate\(168deg\)/);
   assert.match(page, /paintHandLight\(0\.29, 0\.61\)/);
   assert.match(page, /paintHandLight\(0\.71, 0\.61\)/);
+  assert.match(page, /createA4Pdf/);
+  assert.match(page, /outputProfile === "print"/);
+  assert.match(page, /@page\{size:A4 portrait/);
   assert.doesNotMatch(page, /handGlow/);
 });

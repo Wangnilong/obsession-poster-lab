@@ -36,6 +36,17 @@ body {
   font-family: var(--font-geist-sans), "Microsoft YaHei", sans-serif;
 }
 
+.route-loading {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: #77746d;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
 button,
 input {
   font: inherit;
@@ -87,6 +98,26 @@ footer span {
 .wordmark {
   text-decoration: none;
   font-size: 28px;
+}
+
+.film-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.site-back {
+  padding-right: 16px;
+  border-right: 1px solid var(--line);
+  color: #6d6b65;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 8px;
+  letter-spacing: 0.13em;
+  text-decoration: none;
+}
+
+.site-back:hover {
+  color: #b3afa6;
 }
 
 .privacy-pill {
@@ -474,6 +505,289 @@ footer p {
 
 .mobile-capture-bar {
   display: none;
+}
+
+/* COSMOS FILM 42 — the reusable film index. */
+.cosmos-home {
+  width: min(1440px, 100%);
+  padding: 0 40px;
+}
+
+.cosmos-nav {
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cosmos-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--paper);
+  text-decoration: none;
+}
+
+.cosmos-mark span {
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 30px;
+  letter-spacing: -0.025em;
+}
+
+.cosmos-mark i {
+  color: var(--red);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.13em;
+}
+
+.cosmos-nav > p,
+.cosmos-hero-foot > span,
+.film-number,
+.film-card-meta,
+.cosmos-footer {
+  font-family: var(--font-geist-mono), monospace;
+  letter-spacing: 0.11em;
+}
+
+.cosmos-nav > p {
+  margin: 0;
+  color: #5f5e59;
+  font-size: 8px;
+}
+
+.cosmos-hero {
+  min-height: min(780px, calc(100vh - 92px));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 90px clamp(0px, 5vw, 72px) 76px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cosmos-kicker {
+  margin: 0 0 27px;
+  color: var(--red);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+.cosmos-home h1 {
+  max-width: 1050px;
+  margin: 0;
+  color: #ddd6cb;
+  font-size: clamp(54px, 7.7vw, 116px);
+  font-weight: 600;
+  letter-spacing: -0.074em;
+  line-height: 0.95;
+}
+
+.cosmos-home h1 em {
+  color: #77736b;
+}
+
+.cosmos-hero-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  margin-top: clamp(50px, 8vh, 90px);
+}
+
+.cosmos-hero-foot p {
+  max-width: 540px;
+  margin: 0;
+  color: #89857d;
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.cosmos-hero-foot > span {
+  color: #55544f;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.film-library {
+  padding: 104px clamp(0px, 5vw, 72px) 120px;
+  border-bottom: 1px solid var(--line);
+}
+
+.library-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 48px;
+}
+
+.library-heading .cosmos-kicker {
+  margin: 0 0 6px;
+}
+
+.library-heading h2 {
+  margin: 0;
+  font-size: clamp(38px, 5vw, 66px);
+}
+
+.film-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 0.74fr);
+  gap: 18px;
+}
+
+.film-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: #0c0d0c;
+}
+
+.film-card:not(.film-card-next) {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(260px, 1.3fr);
+}
+
+.film-poster-link {
+  position: relative;
+  min-height: 590px;
+  overflow: hidden;
+  background: #050605;
+}
+
+.film-poster-link img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  filter: saturate(0.82) contrast(1.04);
+  transition: transform 480ms cubic-bezier(0.2, 0.7, 0.2, 1), filter 480ms ease;
+}
+
+.film-poster-link:hover img {
+  transform: scale(1.025);
+  filter: saturate(1) contrast(1.08);
+}
+
+.film-enter {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  padding: 10px 12px;
+  color: #f4e9dd;
+  background: rgba(9, 10, 9, 0.84);
+  border: 1px solid rgba(238, 229, 216, 0.2);
+  backdrop-filter: blur(10px);
+  font-size: 10px;
+}
+
+.film-card-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(30px, 4.5vw, 66px);
+}
+
+.film-number {
+  margin-bottom: auto;
+  color: var(--red);
+  font-size: 8px;
+}
+
+.film-card h3 {
+  margin: 80px 0 0;
+  color: #e3dcd1;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: clamp(56px, 7vw, 98px);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+
+.film-cn-title {
+  margin: 10px 0 0;
+  color: #706e68;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+}
+
+.film-description {
+  max-width: 410px;
+  margin: 34px 0 48px;
+  color: #8f8a82;
+  font-size: 13px;
+  line-height: 1.85;
+}
+
+.film-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  color: #62615c;
+  font-size: 8px;
+}
+
+.film-live {
+  margin-left: auto;
+  color: #8ba477;
+}
+
+.film-live i {
+  width: 5px;
+  height: 5px;
+  display: inline-block;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.film-card-next {
+  min-height: 590px;
+}
+
+.next-film-frame {
+  height: 100%;
+  min-height: inherit;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 26px;
+  color: #41413d;
+  background:
+    linear-gradient(rgba(230, 223, 211, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(230, 223, 211, 0.045) 1px, transparent 1px);
+  background-size: 36px 36px;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+}
+
+.next-film-frame strong {
+  place-self: center;
+  color: #242522;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 170px;
+  font-weight: 400;
+  letter-spacing: -0.06em;
+}
+
+.next-film-frame p {
+  margin: 0;
+}
+
+.cosmos-footer {
+  min-height: 112px;
+  font-size: 8px;
+}
+
+.cosmos-footer span {
+  color: #c8c0b5;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 20px;
 }
 
 /* Camera is deliberately plain: the poster composition is the interface. */
@@ -935,6 +1249,18 @@ footer p {
 }
 
 @media (max-width: 900px) {
+  .cosmos-home {
+    padding: 0 24px;
+  }
+
+  .film-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .film-card-next {
+    min-height: 330px;
+  }
+
   .hero {
     grid-template-columns: minmax(0, 1fr);
     padding: 54px 4vw 68px;
@@ -959,6 +1285,107 @@ footer p {
 }
 
 @media (max-width: 620px) {
+  .cosmos-home {
+    padding: 0 14px;
+  }
+
+  .cosmos-nav {
+    min-height: 72px;
+  }
+
+  .cosmos-nav > p {
+    display: none;
+  }
+
+  .cosmos-mark span {
+    font-size: 26px;
+  }
+
+  .cosmos-hero {
+    min-height: calc(100svh - 72px);
+    padding: 64px 0 44px;
+  }
+
+  .cosmos-home h1 {
+    font-size: clamp(48px, 16vw, 72px);
+  }
+
+  .cosmos-hero-foot {
+    display: block;
+    margin-top: auto;
+    padding-top: 54px;
+  }
+
+  .cosmos-hero-foot p {
+    font-size: 12px;
+  }
+
+  .cosmos-hero-foot > span {
+    display: block;
+    margin-top: 24px;
+  }
+
+  .film-library {
+    padding: 72px 0 80px;
+  }
+
+  .library-heading {
+    display: block;
+    margin-bottom: 28px;
+  }
+
+  .library-heading h2 {
+    margin-top: 10px;
+  }
+
+  .film-card:not(.film-card-next) {
+    grid-template-columns: 1fr;
+  }
+
+  .film-poster-link {
+    min-height: auto;
+    aspect-ratio: 3508 / 4961;
+  }
+
+  .film-card-copy {
+    padding: 28px 22px 24px;
+  }
+
+  .film-number {
+    margin-bottom: 42px;
+  }
+
+  .film-card h3 {
+    margin-top: 0;
+    font-size: 64px;
+  }
+
+  .film-description {
+    margin: 26px 0 36px;
+  }
+
+  .film-live {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .film-card-next,
+  .next-film-frame {
+    min-height: 260px;
+  }
+
+  .next-film-frame strong {
+    font-size: 112px;
+  }
+
+  .cosmos-footer {
+    min-height: 150px;
+  }
+
+  .site-back {
+    display: none;
+  }
+
   main {
     padding: 0 14px;
   }
@@ -1059,5 +1486,860 @@ footer p {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+}
+
+/* 2026 cinematic pass — built from the supplied poster, not stock UI chrome. */
+.obsession-experience {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  background:
+    radial-gradient(circle at 72% 14%, rgba(108, 19, 16, 0.13), transparent 28rem),
+    #050505;
+}
+
+.obsession-experience::after {
+  content: "";
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image:
+    repeating-radial-gradient(circle at 20% 30%, transparent 0 1px, rgba(255, 255, 255, 0.08) 1px 2px),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.025) 3px 4px);
+  background-size: 7px 7px, 100% 4px;
+  mix-blend-mode: soft-light;
+}
+
+.experience-gate {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  overflow: hidden;
+  background: #ed2224;
+  transform: translateY(0);
+  transition: transform 760ms cubic-bezier(0.76, 0, 0.24, 1), visibility 760ms;
+}
+
+.experience-gate-open {
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-105%);
+}
+
+.experience-gate button {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border: 0;
+  color: #050505;
+  background: transparent;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.experience-gate button > span,
+.experience-gate button > small {
+  font-family: var(--font-geist-mono), monospace;
+  letter-spacing: 0.16em;
+}
+
+.experience-gate button > span {
+  margin-bottom: 17px;
+  font-size: 9px;
+}
+
+.experience-gate button > strong {
+  font-family: "Anton", Impact, sans-serif;
+  font-size: clamp(92px, 20vw, 290px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.84;
+  transition: transform 240ms ease;
+}
+
+.experience-gate button:hover > strong {
+  transform: scaleX(1.05);
+}
+
+.experience-gate button > small {
+  margin-top: 22px;
+  color: #fff;
+  font-size: 9px;
+}
+
+.gate-ghost {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: transparent;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: min(38vw, 540px);
+  line-height: 0.75;
+  white-space: nowrap;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.1);
+  transform: translate(-50%, -50%) scaleX(1.35) rotate(-4deg);
+}
+
+.obsession-experience .topbar {
+  position: sticky;
+  z-index: 60;
+  top: 0;
+  width: 100%;
+  height: 74px;
+  padding: 0 clamp(18px, 3.5vw, 56px);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(5, 5, 5, 0.76);
+  backdrop-filter: blur(18px) saturate(0.72);
+}
+
+.obsession-experience .wordmark,
+.camera-header span {
+  position: relative;
+  color: #f4eee5;
+  font-size: 31px;
+  letter-spacing: -0.035em;
+  text-shadow:
+    -2px 0 rgba(236, 34, 36, 0.92),
+    2px 1px rgba(28, 55, 255, 0.65),
+    0 5px 14px rgba(0, 0, 0, 0.8);
+}
+
+.obsession-experience .site-back {
+  color: rgba(244, 238, 229, 0.5);
+}
+
+.obsession-experience .privacy-pill {
+  color: rgba(244, 238, 229, 0.46);
+}
+
+.obsession-experience .hero {
+  position: relative;
+  width: min(1480px, 100%);
+  min-height: calc(100svh - 74px);
+  margin: 0 auto;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.62fr);
+  gap: clamp(42px, 8vw, 128px);
+  padding: clamp(56px, 8vh, 108px) clamp(20px, 7vw, 112px);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.hero-atmosphere {
+  position: absolute;
+  z-index: 0;
+  inset: -50px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-atmosphere img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 34%;
+  opacity: 0.29;
+  filter: blur(30px) brightness(0.42) saturate(0.7) contrast(1.2);
+  transform: scale(1.17);
+  animation: obsession-breathe 12s ease-in-out infinite alternate;
+}
+
+.hero-atmosphere::before,
+.hero-atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.hero-atmosphere::before {
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(4, 4, 4, 0.96) 0%, rgba(4, 4, 4, 0.73) 46%, rgba(4, 4, 4, 0.18) 100%),
+    linear-gradient(0deg, #050505 0%, transparent 36%, rgba(0, 0, 0, 0.2) 100%);
+}
+
+.hero-atmosphere::after {
+  z-index: 2;
+  left: 47%;
+  background: radial-gradient(circle at 50% 42%, rgba(194, 34, 28, 0.2), transparent 27%);
+  mix-blend-mode: screen;
+}
+
+@keyframes obsession-breathe {
+  from { transform: scale(1.14) translate3d(-0.7%, -0.4%, 0); }
+  to { transform: scale(1.2) translate3d(0.8%, 0.5%, 0); }
+}
+
+.obsession-experience .hero > *:not(.hero-atmosphere) {
+  position: relative;
+  z-index: 2;
+}
+
+.obsession-experience .hero-copy {
+  max-width: 720px;
+}
+
+.obsession-experience .eyebrow {
+  margin-bottom: 24px;
+  color: #ed3434;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+}
+
+.obsession-experience h1,
+.obsession-experience h2 {
+  font-family: "Anton", Impact, sans-serif;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.obsession-experience h1 {
+  margin-bottom: 28px;
+  color: #f2ece3;
+  font-size: clamp(82px, 10vw, 154px);
+  letter-spacing: -0.047em;
+  line-height: 0.8;
+  text-shadow: 0 16px 50px #000;
+}
+
+.obsession-experience h1 em {
+  display: inline-block;
+  color: #ed2f31;
+  transform: translateX(-0.015em);
+}
+
+.obsession-experience .intro {
+  margin-bottom: 36px;
+  color: rgba(242, 236, 227, 0.72);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.9;
+  text-shadow: 0 3px 18px #000;
+}
+
+.obsession-experience .capture-actions {
+  width: min(500px, 100%);
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 12px;
+}
+
+.obsession-experience .upload-hero,
+.obsession-experience .album-button,
+.print-button,
+.pdf-button,
+.share-button,
+.obsession-experience .export-button {
+  min-height: 48px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.obsession-experience .upload-hero {
+  min-height: 74px;
+  padding: 12px 28px;
+  background: #d91f25;
+  box-shadow: 0 12px 34px rgba(180, 10, 15, 0.3);
+}
+
+.obsession-experience .upload-hero span {
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+.obsession-experience .upload-hero small {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.obsession-experience .album-button {
+  padding: 0 16px;
+  color: rgba(242, 236, 227, 0.82);
+  background: rgba(5, 5, 5, 0.48);
+  border-color: rgba(242, 236, 227, 0.25);
+  backdrop-filter: blur(12px);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.obsession-experience .upload-hero:hover,
+.print-button:hover {
+  background: #f02a31;
+  transform: translateY(-2px);
+}
+
+.obsession-experience .album-button:hover,
+.pdf-button:hover,
+.share-button:hover,
+.obsession-experience .export-button:hover {
+  border-color: rgba(242, 236, 227, 0.54);
+  transform: translateY(-2px);
+}
+
+.obsession-experience .status {
+  color: rgba(242, 236, 227, 0.5);
+  font-family: var(--font-geist-mono), monospace;
+  letter-spacing: 0.04em;
+}
+
+.obsession-experience .poster-stage {
+  position: relative;
+  width: min(426px, 100%);
+}
+
+.obsession-experience .poster-frame {
+  padding: 5px;
+  border: 1px solid rgba(239, 45, 49, 0.56);
+  background: #090909;
+  box-shadow:
+    0 42px 90px rgba(0, 0, 0, 0.72),
+    0 0 50px rgba(130, 13, 12, 0.14);
+}
+
+.obsession-experience .poster-frame::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.06), transparent 22%, transparent 74%, rgba(255, 255, 255, 0.02));
+  mix-blend-mode: screen;
+}
+
+.preview-profile-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 12px;
+  padding: 3px;
+  border: 1px solid rgba(242, 236, 227, 0.14);
+  border-radius: 999px;
+  background: #090909;
+}
+
+.preview-profile-switch button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(242, 236, 227, 0.48);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.preview-profile-switch button.is-active {
+  color: #fff;
+  background: #c91f25;
+  box-shadow: 0 5px 20px rgba(201, 31, 37, 0.24);
+}
+
+.live-preview-label {
+  position: absolute;
+  z-index: 10;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  color: #ed3337;
+  background: rgba(4, 4, 4, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(12px);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.live-preview-label small {
+  color: rgba(242, 236, 227, 0.56);
+  font-size: 8px;
+}
+
+.obsession-experience .poster-meta,
+.obsession-experience .quality-badge {
+  color: rgba(242, 236, 227, 0.36);
+}
+
+.obsession-experience .workbench {
+  width: min(1480px, 100%);
+  margin: 0 auto;
+  border-color: rgba(255, 255, 255, 0.09);
+  background: #080808;
+}
+
+.obsession-experience .controls-panel,
+.obsession-experience .export-panel {
+  padding: clamp(64px, 8vw, 112px) clamp(24px, 6vw, 92px);
+}
+
+.obsession-experience .controls-panel {
+  border-color: rgba(255, 255, 255, 0.09);
+  background:
+    linear-gradient(150deg, rgba(127, 17, 15, 0.1), transparent 38%),
+    #080808;
+}
+
+.obsession-experience .export-panel {
+  background: #101010;
+}
+
+.obsession-experience h2 {
+  color: #eee7dd;
+  font-size: clamp(48px, 5.3vw, 82px);
+  letter-spacing: -0.035em;
+  line-height: 0.86;
+}
+
+.obsession-experience .control > span,
+.obsession-experience .export-panel li {
+  color: rgba(242, 236, 227, 0.6);
+}
+
+.obsession-experience .control input[type="range"] {
+  height: 3px;
+  background: #343131;
+}
+
+.obsession-experience .control input[type="range"]::-webkit-slider-thumb {
+  width: 17px;
+  height: 17px;
+  border-color: #080808;
+  background: #ed252b;
+  box-shadow: 0 0 0 1px rgba(237, 37, 43, 0.65), 0 0 20px rgba(237, 37, 43, 0.24);
+}
+
+.output-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.output-actions > div {
+  display: grid;
+  grid-template-columns: 0.76fr 1.24fr;
+  gap: 10px;
+}
+
+.print-button,
+.pdf-button,
+.share-button {
+  border: 0;
+  cursor: pointer;
+}
+
+.print-button {
+  min-height: 62px;
+  color: #fff;
+  background: #d91f25;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+
+.obsession-experience .export-button,
+.pdf-button,
+.share-button {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 16px;
+  color: rgba(242, 236, 227, 0.82);
+  background: transparent;
+  border: 1px solid rgba(242, 236, 227, 0.2);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.print-button:disabled,
+.pdf-button:disabled,
+.obsession-experience .export-button:disabled,
+.share-button:disabled {
+  opacity: 0.48;
+  cursor: progress;
+}
+
+.obsession-experience .shoot-guide {
+  width: min(1480px, 100%);
+  margin: 0 auto;
+  border-color: rgba(255, 255, 255, 0.09);
+  background: #ed2224;
+}
+
+.obsession-experience .rule {
+  min-height: 142px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  border-color: rgba(0, 0, 0, 0.17);
+}
+
+.obsession-experience .rule span,
+.obsession-experience .rule strong {
+  color: #080808;
+}
+
+.obsession-experience .rule span {
+  font-size: 8px;
+  letter-spacing: 0.15em;
+}
+
+.obsession-experience .rule strong {
+  font-family: "Anton", Impact, sans-serif;
+  font-size: clamp(26px, 3vw, 42px);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.obsession-experience > footer {
+  width: min(1480px, 100%);
+  min-height: 118px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 64px);
+}
+
+.obsession-experience > footer span {
+  color: #f0eae0;
+  text-shadow: -1px 0 #ed2224, 1px 0 #243ef2;
+}
+
+.camera-overlay {
+  z-index: 500;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(108, 14, 13, 0.2), transparent 37%),
+    #030303;
+}
+
+.camera-header span {
+  color: #f6f0e8;
+}
+
+.camera-viewport {
+  border: 1px solid rgba(237, 34, 36, 0.62);
+  box-shadow: 0 0 0 7px #080808, 0 34px 70px rgba(0, 0, 0, 0.75);
+}
+
+.composition-guide {
+  box-shadow: inset 0 0 130px rgba(0, 0, 0, 0.52);
+}
+
+.guide-bouquet,
+.guide-face,
+.guide-vase,
+.guide-vase::before,
+.guide-vase::after,
+.hand-palm,
+.hand-finger,
+.hand-thumb {
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.65));
+}
+
+.pose-feedback {
+  top: 3.2%;
+  min-height: 32px;
+  padding-inline: 13px;
+  border-radius: 2px;
+  background: rgba(5, 5, 5, 0.78);
+  font-family: var(--font-geist-mono), monospace;
+  letter-spacing: 0.06em;
+}
+
+.timer-options,
+.timer-options button {
+  border-radius: 2px;
+}
+
+.timer-options button.timer-active {
+  background: #d91f25;
+}
+
+.shutter {
+  border-color: #ed2224;
+  box-shadow: 0 0 0 5px rgba(237, 34, 36, 0.08);
+}
+
+.shutter i {
+  background: #f0ebe2;
+}
+
+.mobile-capture-bar button {
+  font-family: "Anton", Impact, sans-serif;
+  letter-spacing: 0.06em;
+}
+
+/* The series homepage now feels like a film door, not a dashboard. */
+.cosmos-home {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  background: #050505;
+}
+
+.cosmos-nav {
+  position: relative;
+  z-index: 2;
+  padding: 0 clamp(18px, 3.5vw, 56px);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.cosmos-mark span {
+  text-shadow: -2px 0 rgba(237, 34, 36, 0.8), 2px 1px rgba(35, 63, 255, 0.55);
+}
+
+.cosmos-hero {
+  position: relative;
+  min-height: calc(100svh - 92px);
+  overflow: hidden;
+  padding-inline: clamp(24px, 9vw, 140px);
+  background:
+    linear-gradient(90deg, rgba(4, 4, 4, 0.98), rgba(4, 4, 4, 0.72) 52%, rgba(4, 4, 4, 0.18)),
+    linear-gradient(0deg, #050505, transparent 54%),
+    url("/original-poster.png") center 34% / cover no-repeat;
+}
+
+.cosmos-home h1 {
+  max-width: 1180px;
+  color: #f1ebe2;
+  font-family: "Anton", Impact, sans-serif;
+  font-size: clamp(78px, 11vw, 168px);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 0.84;
+  text-transform: uppercase;
+  text-shadow: 0 20px 60px #000;
+}
+
+.cosmos-home h1 em {
+  color: #ed2b30;
+}
+
+.film-library {
+  padding-inline: clamp(18px, 8vw, 120px);
+  background: #080808;
+}
+
+.library-heading h2,
+.film-card h3 {
+  font-family: "Anton", Impact, sans-serif;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.film-card {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.film-poster-link img {
+  filter: brightness(0.82) saturate(0.7) contrast(1.14);
+}
+
+.film-enter {
+  color: #fff;
+  background: #d91f25;
+  border: 0;
+  border-radius: 999px;
+}
+
+@media (max-width: 900px) {
+  .obsession-experience .hero {
+    grid-template-columns: 1fr;
+    gap: 58px;
+    padding-inline: clamp(20px, 7vw, 72px);
+  }
+
+  .hero-atmosphere::before {
+    background:
+      linear-gradient(0deg, #050505 0%, rgba(4, 4, 4, 0.62) 54%, rgba(4, 4, 4, 0.35) 100%),
+      linear-gradient(90deg, rgba(4, 4, 4, 0.75), rgba(4, 4, 4, 0.22));
+  }
+
+  .obsession-experience .poster-stage {
+    width: min(520px, 100%);
+  }
+}
+
+@media (max-width: 620px) {
+  .experience-gate button > strong {
+    font-size: clamp(104px, 34vw, 156px);
+  }
+
+  .gate-ghost {
+    font-size: 62vw;
+    transform: translate(-50%, -50%) scaleX(1.4) rotate(-8deg);
+  }
+
+  .obsession-experience .topbar {
+    height: 62px;
+    padding-inline: 14px;
+  }
+
+  .obsession-experience .wordmark {
+    font-size: 26px;
+  }
+
+  .obsession-experience .privacy-pill {
+    font-size: 6px;
+  }
+
+  .obsession-experience .hero {
+    min-height: calc(100svh - 62px);
+    gap: 42px;
+    padding: 54px 14px 86px;
+  }
+
+  .hero-atmosphere {
+    inset: -30px;
+  }
+
+  .hero-atmosphere img {
+    opacity: 0.4;
+    filter: blur(19px) brightness(0.36) saturate(0.68) contrast(1.22);
+  }
+
+  .obsession-experience h1 {
+    font-size: clamp(72px, 23vw, 104px);
+  }
+
+  .obsession-experience .intro {
+    font-size: 13px;
+  }
+
+  .obsession-experience .capture-actions {
+    grid-template-columns: minmax(0, 1fr) 106px;
+    gap: 8px;
+  }
+
+  .obsession-experience .upload-hero {
+    padding-inline: 22px;
+  }
+
+  .live-preview-label {
+    top: 13px;
+    right: 13px;
+  }
+
+  .obsession-experience .controls-panel,
+  .obsession-experience .export-panel {
+    padding: 68px 14px;
+  }
+
+  .obsession-experience .section-heading {
+    align-items: flex-start;
+  }
+
+  .obsession-experience h2 {
+    font-size: 56px;
+  }
+
+  .obsession-experience .rule {
+    min-height: 96px;
+    padding: 20px 14px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .obsession-experience .rule strong {
+    font-size: 28px;
+  }
+
+  .obsession-experience > footer {
+    padding-inline: 14px;
+  }
+
+  .output-actions > div {
+    grid-template-columns: 1fr 1.25fr;
+  }
+
+  .mobile-capture-bar {
+    position: fixed;
+    z-index: 90;
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    background: rgba(5, 5, 5, 0.86);
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(16px);
+  }
+
+  .mobile-capture-bar:has(button:nth-child(3)) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .mobile-capture-bar button {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    color: #f6f0e8;
+    background: transparent;
+    font-size: 13px;
+  }
+
+  .mobile-capture-bar button:first-child {
+    background: #d91f25;
+  }
+
+  .camera-overlay {
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+
+  .camera-header {
+    min-height: 48px;
+  }
+
+  .camera-viewport {
+    width: min(100%, calc((100dvh - 204px) * 0.707));
+    box-shadow: 0 0 0 4px #080808, 0 24px 60px #000;
+  }
+
+  .camera-bottom {
+    min-height: 132px;
+  }
+
+  .cosmos-home {
+    padding: 0;
+  }
+
+  .cosmos-nav {
+    padding-inline: 14px;
+  }
+
+  .cosmos-hero {
+    min-height: calc(100svh - 72px);
+    padding: 58px 18px 40px;
+    background-position: center 30%;
+  }
+
+  .cosmos-home h1 {
+    font-size: clamp(70px, 22vw, 102px);
+  }
+
+  .film-library {
+    padding-inline: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .experience-gate,
+  .hero-atmosphere img {
+    animation: none;
+    transition-duration: 1ms;
   }
 }
