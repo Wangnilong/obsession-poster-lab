@@ -6,8 +6,13 @@ export default function SiteHome() {
     <main className="cosmos-home">
       <header className="cosmos-nav">
         <a className="cosmos-mark" href="./" aria-label="Cosmos Film 42 首页">
-          <span>COSMOS</span>
-          <i>FILM 42</i>
+          <img
+            className="cosmos-mark-logo"
+            src="./cosmos-film42-logo.png"
+            width={595}
+            height={472}
+            alt="宇宙戏映"
+          />
         </a>
         <p>INDEPENDENT FILM / INTERACTIVE ARCHIVE</p>
       </header>

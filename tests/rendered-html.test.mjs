@@ -21,6 +21,7 @@ test("server-renders the reusable Cosmos film index", async () => {
 
   const html = await response.text();
   assert.match(html, /COSMOS FILM 42/);
+  assert.match(html, /cosmos-film42-logo\.png/);
   assert.match(html, /电影项目/);
   assert.match(html, /\.\/obsession\//);
   assert.match(html, /COMING SOON/);
@@ -34,6 +35,7 @@ test("server-renders the Obsession photo booth on its film route", async () => {
   assert.match(html, /OBSESSION/);
   assert.match(html, /进入相机/);
   assert.match(html, /original-poster\.png/);
+  assert.match(html, /cosmos-film42-logo\.png/);
   assert.match(html, /3508 × 4961/);
   assert.match(html, /2480 × 3508/);
   assert.match(html, /直接打印 A4/);
@@ -69,6 +71,7 @@ test("keeps large uploads memory-safe and the subject locally exposed", async ()
   assert.match(page, /hue-rotate\(168deg\)/);
   assert.match(page, /paintHandLight\(0\.29, 0\.61\)/);
   assert.match(page, /paintHandLight\(0\.71, 0\.61\)/);
+  assert.match(page, /obsession-title\.png/);
   assert.match(page, /createA4Pdf/);
   assert.match(page, /outputProfile === "print"/);
   assert.match(page, /@page\{size:A4 portrait/);

@@ -107,6 +107,8 @@ footer span {
 }
 
 .site-back {
+  display: flex;
+  align-items: center;
   padding-right: 16px;
   border-right: 1px solid var(--line);
   color: #6d6b65;
@@ -114,6 +116,12 @@ footer span {
   font-size: 8px;
   letter-spacing: 0.13em;
   text-decoration: none;
+}
+
+.site-back-logo {
+  display: block;
+  width: 46px;
+  height: auto;
 }
 
 .site-back:hover {
@@ -524,10 +532,15 @@ footer p {
 
 .cosmos-mark {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
   color: var(--paper);
   text-decoration: none;
+}
+
+.cosmos-mark-logo {
+  display: block;
+  width: 62px;
+  height: auto;
 }
 
 .cosmos-mark span {
@@ -1297,8 +1310,8 @@ footer p {
     display: none;
   }
 
-  .cosmos-mark span {
-    font-size: 26px;
+  .cosmos-mark-logo {
+    width: 50px;
   }
 
   .cosmos-hero {
@@ -1383,7 +1396,7 @@ footer p {
   }
 
   .site-back {
-    display: none;
+    display: flex;
   }
 
   main {
@@ -2181,6 +2194,19 @@ footer p {
   .obsession-experience .topbar {
     height: 62px;
     padding-inline: 14px;
+  }
+
+  .obsession-experience .film-brand {
+    gap: 10px;
+  }
+
+  .obsession-experience .site-back {
+    display: flex;
+    padding-right: 10px;
+  }
+
+  .site-back-logo {
+    width: 36px;
   }
 
   .obsession-experience .wordmark {

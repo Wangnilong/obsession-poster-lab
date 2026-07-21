@@ -590,26 +590,17 @@ function renderPoster(
 
   context.save();
   if (brandArt) {
-    // Reuse the title photographed in the supplied original poster. Screen
-    // blending drops the black crop while preserving the exact letterforms,
-    // glow and analogue softness of the source artwork.
-    const sourceX = brandArt.naturalWidth * 0.13;
-    const sourceY = brandArt.naturalHeight * 0.845;
-    const sourceWidth = brandArt.naturalWidth * 0.74;
-    const sourceHeight = brandArt.naturalHeight * 0.125;
+    // The photographed title is pre-extracted to real transparency so its
+    // analogue glow remains without carrying a rectangular poster crop.
     const targetWidth = width * 0.72;
     const targetHeight = height * 0.118;
     const targetX = (width - targetWidth) / 2;
     const targetY = height * 0.852;
-    context.globalCompositeOperation = "screen";
-    context.globalAlpha = 0.95;
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = 0.98;
     context.filter = `blur(${Math.max(0.2, width / A3_WIDTH) * 0.36}px)`;
     context.drawImage(
       brandArt,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
       targetX,
       targetY,
       targetWidth,
@@ -865,7 +856,7 @@ export default function ObsessionPoster() {
       brandArtRef.current = brandArt;
       setBrandReady(true);
     };
-    brandArt.src = "./original-poster.png";
+    brandArt.src = "./obsession-title.png";
     let enteredFrame: number | null = null;
     if (window.sessionStorage.getItem("obsession-entered") === "yes") {
       enteredFrame = window.requestAnimationFrame(() => setExperienceEntered(true));
@@ -1451,7 +1442,13 @@ export default function ObsessionPoster() {
       <header className="topbar">
         <div className="film-brand">
           <a className="site-back" href="../" aria-label="返回 Cosmos Film 42 主页">
-            COSMOS FILM 42
+            <img
+              className="site-back-logo"
+              src="./cosmos-film42-logo.png"
+              width={595}
+              height={472}
+              alt="宇宙戏映"
+            />
           </a>
           <a className="wordmark" href="#booth" aria-label="Obsession 拍照亭顶部">
             OBSESSION
