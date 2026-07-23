@@ -67,6 +67,26 @@ function errorResponse(request, status, code, message) {
   );
 }
 
+function generationErrorDetails(error) {
+  const record = error && typeof error === "object" ? error : {};
+  const responseBody =
+    typeof record.responseBody === "string"
+      ? record.responseBody
+      : typeof record.data === "string"
+        ? record.data
+        : "";
+  return {
+    name: typeof record.name === "string" ? record.name : "UnknownError",
+    message:
+      typeof record.message === "string"
+        ? record.message.slice(0, 1600)
+        : String(error).slice(0, 1600),
+    statusCode:
+      Number(record.statusCode ?? record.status ?? record.response?.status) || null,
+    responseBody: responseBody.slice(0, 1600),
+  };
+}
+
 function isRateLimited(request) {
   const forwarded = request.headers.get("x-forwarded-for") ?? "unknown";
   const ip = forwarded.split(",")[0].trim();
@@ -136,13 +156,28 @@ const webHandler = {
         abortSignal: AbortSignal.timeout(285_000),
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message.toLowerCase() : "";
-      if (message.includes("credit") || message.includes("quota") || message.includes("429")) {
+      const details = generationErrorDetails(error);
+      console.error("[ai-poster] generation failed", details);
+      const message = `${details.message} ${details.responseBody}`.toLowerCase();
+      if (
+        message.includes("credit") ||
+        message.includes("quota") ||
+        message.includes("insufficient_balance") ||
+        message.includes("402")
+      ) {
+        return errorResponse(
+          request,
+          503,
+          "gateway_quota",
+          "本月 AI 额度暂时不足，请在 Vercel AI Gateway 补充额度。",
+        );
+      }
+      if (details.statusCode === 429 || message.includes("rate limit")) {
         return errorResponse(
           request,
           429,
-          "gateway_quota",
-          "本月 AI 额度暂时不足，请在 Vercel AI Gateway 补充额度。",
+          "upstream_rate_limited",
+          "AI 图像服务当前繁忙，请两分钟后再试。",
         );
       }
       if (message.includes("auth") || message.includes("oidc") || message.includes("401")) {

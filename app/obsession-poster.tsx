@@ -52,7 +52,7 @@ type PoseLandmarkerLike = {
   close: () => void;
 };
 
-type AiBackgroundState = "idle" | "loading" | "ready" | "error";
+type AiBackgroundState = "idle" | "loading" | "ready" | "error" | "blocked";
 
 type PoseFeedback = {
   tone: "loading" | "good" | "adjust" | "missing";
@@ -1146,13 +1146,17 @@ export default function ObsessionPoster() {
       });
       if (!response.ok) {
         let message = "高清 AI 暂时没有生成成功，请稍后重试。";
+        let code = "";
         try {
           const details = await response.json();
           if (typeof details?.error === "string") message = details.error;
+          if (typeof details?.code === "string") code = details.code;
         } catch {
           // Keep the safe fallback message.
         }
-        throw new Error(message);
+        const cloudError = new Error(message) as Error & { code?: string };
+        cloudError.code = code;
+        throw cloudError;
       }
 
       const generatedBlob = await response.blob();
@@ -1163,7 +1167,12 @@ export default function ObsessionPoster() {
       setAiBackgroundEnabled(true);
       setStatus("高清 AI 成片已完成：背景、红色逆光和人物受光均由图像模型重新生成。");
     } catch (error) {
-      setAiBackgroundState("error");
+      const code =
+        error instanceof Error && "code" in error
+          ? (error as Error & { code?: string }).code
+          : "";
+      const blocked = code === "gateway_quota" || code === "gateway_auth";
+      setAiBackgroundState(blocked ? "blocked" : "error");
       setAiBackgroundEnabled(false);
       setStatus(
         error instanceof Error
@@ -1707,7 +1716,7 @@ export default function ObsessionPoster() {
             <button
               type="button"
               aria-pressed={aiBackgroundEnabled}
-              disabled={aiBackgroundState === "loading"}
+              disabled={aiBackgroundState === "loading" || aiBackgroundState === "blocked"}
               onClick={toggleAiBackground}
             >
               {aiBackgroundState === "loading"
@@ -1716,6 +1725,8 @@ export default function ObsessionPoster() {
                   ? "关闭"
                   : aiBackgroundState === "ready"
                     ? "重新开启"
+                    : aiBackgroundState === "blocked"
+                      ? "服务未开通"
                     : aiBackgroundState === "error"
                       ? "重试"
                       : "高清生成"}
