@@ -45,11 +45,12 @@ test("server-renders the Obsession photo booth on its film route", async () => {
 });
 
 test("keeps pose AI and its runtime assets on-device", async () => {
-  const [page, model, segmentationModel, wasm] = await Promise.all([
+  const [page, model, segmentationModel, wasm, cinematicBackdrop] = await Promise.all([
     readFile(new URL("../app/obsession-poster.tsx", import.meta.url), "utf8"),
     stat(new URL("../public/models/pose_landmarker_lite.task", import.meta.url)),
     stat(new URL("../public/models/selfie_segmenter.tflite", import.meta.url)),
     stat(new URL("../public/mediapipe/wasm/vision_wasm_internal.wasm", import.meta.url)),
+    stat(new URL("../public/obsession-darkroom-ai.png", import.meta.url)),
   ]);
 
   assert.match(page, /@mediapipe\/tasks-vision/);
@@ -58,11 +59,13 @@ test("keeps pose AI and its runtime assets on-device", async () => {
   assert.match(page, /ImageSegmenter\.createFromOptions/);
   assert.match(page, /buildSubjectCutout/);
   assert.match(page, /paintAiBackdrop/);
+  assert.match(page, /obsession-darkroom-ai\.png/);
   assert.match(page, /selfie_segmenter\.tflite/);
   assert.match(page, /\(\[0, 3, 10\] as TimerSeconds\[\]\)/);
   assert.ok(model.size > 5_000_000);
   assert.ok(segmentationModel.size > 200_000);
   assert.ok(wasm.size > 10_000_000);
+  assert.ok(cinematicBackdrop.size > 1_000_000);
 });
 
 test("keeps large uploads memory-safe and the subject locally exposed", async () => {

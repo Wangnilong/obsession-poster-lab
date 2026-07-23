@@ -499,7 +499,10 @@ async function buildSubjectCutout(
 
     const maskImage = maskContext.createImageData(mask.width, mask.height);
     for (let index = 0; index < confidence.length; index += 1) {
-      const normalized = clamp((confidence[index] - 0.16) / 0.7, 0, 1);
+      // The selfie model returns a soft confidence field. A tighter transition
+      // removes the pale fringe that the first version exposed around hair,
+      // shoulders and flowers, while keeping genuine semi-transparent edges.
+      const normalized = clamp((confidence[index] - 0.27) / 0.55, 0, 1);
       const softened = normalized * normalized * (3 - 2 * normalized);
       const pixel = index * 4;
       maskImage.data[pixel] = 255;
@@ -524,9 +527,7 @@ async function buildSubjectCutout(
 
     context.drawImage(image, 0, 0, width, height);
     context.globalCompositeOperation = "destination-in";
-    context.filter = `blur(${Math.max(0.7, width / 1800)}px)`;
     context.drawImage(maskCanvas, 0, 0, width, height);
-    context.filter = "none";
     context.globalCompositeOperation = "source-over";
 
     const blob = await new Promise<Blob>((resolve, reject) => {
@@ -552,34 +553,59 @@ function paintAiBackdrop(
   width: number,
   height: number,
   outputProfile: OutputProfile,
+  backdropImage: HTMLImageElement | null,
 ) {
-  const paperLift = outputProfile === "print" ? 1.35 : 1;
-  const room = context.createLinearGradient(0, 0, width, height);
-  room.addColorStop(0, `rgba(48, 49, 40, ${0.62 * paperLift})`);
-  room.addColorStop(0.38, `rgba(18, 20, 18, ${0.84 * paperLift})`);
-  room.addColorStop(1, "rgba(3, 4, 4, 1)");
-  context.fillStyle = room;
-  context.fillRect(0, 0, width, height);
+  if (backdropImage) {
+    const scale = Math.max(
+      width / backdropImage.naturalWidth,
+      height / backdropImage.naturalHeight,
+    );
+    const backdropWidth = backdropImage.naturalWidth * scale;
+    const backdropHeight = backdropImage.naturalHeight * scale;
+    context.save();
+    context.filter = [
+      `brightness(${outputProfile === "print" ? 1.12 : 0.86})`,
+      `contrast(${outputProfile === "print" ? 1.02 : 1.13})`,
+      "saturate(0.78)",
+      `blur(${Math.max(0.2, width / A3_WIDTH) * 0.45}px)`,
+    ].join(" ");
+    context.drawImage(
+      backdropImage,
+      (width - backdropWidth) / 2,
+      (height - backdropHeight) / 2,
+      backdropWidth,
+      backdropHeight,
+    );
+    context.restore();
+  } else {
+    const paperLift = outputProfile === "print" ? 1.35 : 1;
+    const room = context.createLinearGradient(0, 0, width, height);
+    room.addColorStop(0, `rgba(48, 49, 40, ${0.62 * paperLift})`);
+    room.addColorStop(0.38, `rgba(18, 20, 18, ${0.84 * paperLift})`);
+    room.addColorStop(1, "rgba(3, 4, 4, 1)");
+    context.fillStyle = room;
+    context.fillRect(0, 0, width, height);
 
-  context.save();
-  context.globalCompositeOperation = "screen";
-  context.filter = `blur(${width * 0.028}px)`;
-  context.globalAlpha = outputProfile === "print" ? 0.13 : 0.09;
-  context.fillStyle = "#b9aa84";
-  const panelWidth = width * 0.16;
-  for (const center of [0.14, 0.38, 0.64, 0.88]) {
-    context.fillRect(width * center - panelWidth / 2, -height * 0.05, panelWidth, height * 0.54);
+    context.save();
+    context.globalCompositeOperation = "screen";
+    context.filter = `blur(${width * 0.028}px)`;
+    context.globalAlpha = outputProfile === "print" ? 0.13 : 0.09;
+    context.fillStyle = "#b9aa84";
+    const panelWidth = width * 0.16;
+    for (const center of [0.14, 0.38, 0.64, 0.88]) {
+      context.fillRect(width * center - panelWidth / 2, -height * 0.05, panelWidth, height * 0.54);
+    }
+    context.restore();
   }
-  context.restore();
 
   context.save();
-  context.translate(width * 0.5, height * 0.34);
+  context.translate(width * 0.5, height * 0.36);
   context.scale(1, 1.32);
   context.globalCompositeOperation = "screen";
   const redHalo = context.createRadialGradient(0, 0, 0, 0, 0, width * 0.43);
-  redHalo.addColorStop(0, `rgba(195, 30, 28, ${outputProfile === "print" ? 0.38 : 0.48})`);
-  redHalo.addColorStop(0.24, "rgba(145, 14, 18, 0.31)");
-  redHalo.addColorStop(0.58, "rgba(76, 5, 9, 0.15)");
+  redHalo.addColorStop(0, `rgba(156, 18, 20, ${outputProfile === "print" ? 0.18 : 0.24})`);
+  redHalo.addColorStop(0.26, "rgba(116, 11, 16, 0.16)");
+  redHalo.addColorStop(0.6, "rgba(65, 4, 8, 0.08)");
   redHalo.addColorStop(1, "rgba(0, 0, 0, 0)");
   context.fillStyle = redHalo;
   context.fillRect(-width, -height, width * 2, height * 2);
@@ -603,6 +629,7 @@ function renderPoster(
   brandArt: HTMLImageElement | null = null,
   outputProfile: OutputProfile = "screen",
   subjectImage: HTMLImageElement | null = null,
+  backdropImage: HTMLImageElement | null = null,
   aiBackgroundEnabled = false,
 ) {
   canvas.width = width;
@@ -616,7 +643,7 @@ function renderPoster(
   const activeImage = aiBackgroundEnabled && subjectImage ? subjectImage : image;
 
   if (aiBackgroundEnabled && subjectImage) {
-    paintAiBackdrop(context, width, height, outputProfile);
+    paintAiBackdrop(context, width, height, outputProfile, backdropImage);
   }
 
   if (activeImage) {
@@ -625,9 +652,60 @@ function renderPoster(
     const screenBrightness = 1 + (toneProfile.brightness - 1) * intensity;
     const screenContrast = 1 + (toneProfile.contrast - 1) * intensity;
     const screenSaturation = 1 + (toneProfile.saturation - 1) * intensity;
-    const brightness = outputProfile === "print" ? Math.min(1.08, screenBrightness * 1.32) : screenBrightness;
-    const contrast = outputProfile === "print" ? 1 + (screenContrast - 1) * 0.42 : screenContrast;
-    const saturation = outputProfile === "print" ? Math.max(0.76, screenSaturation * 0.94) : screenSaturation;
+    const brightness = outputProfile === "print"
+      ? Math.min(1.08, screenBrightness * 1.32)
+      : aiBackgroundEnabled
+        ? clamp(screenBrightness * 1.18, 0.78, 1.06)
+        : screenBrightness;
+    const contrast = outputProfile === "print"
+      ? 1 + (screenContrast - 1) * 0.42
+      : aiBackgroundEnabled
+        ? clamp(screenContrast * 1.03, 1.04, 1.28)
+        : screenContrast;
+    const saturation = outputProfile === "print"
+      ? Math.max(0.76, screenSaturation * 0.94)
+      : aiBackgroundEnabled
+        ? clamp(screenSaturation * 0.9, 0.58, 0.88)
+        : screenSaturation;
+
+    if (aiBackgroundEnabled && subjectImage) {
+      // A dark contact shadow and a narrow red offset sit behind the clean
+      // subject. Drawing them before the subject creates a photographic rim
+      // light instead of washing the whole person with a red transparency.
+      context.save();
+      context.globalAlpha = outputProfile === "print" ? 0.24 : 0.34;
+      context.filter = `brightness(0) blur(${Math.max(1.5, width / A3_WIDTH) * 8}px)`;
+      context.drawImage(
+        subjectImage,
+        rect.x,
+        rect.y + height * 0.004,
+        rect.width,
+        rect.height,
+      );
+      context.restore();
+
+      context.save();
+      context.globalCompositeOperation = "screen";
+      context.globalAlpha = outputProfile === "print" ? 0.11 : 0.16;
+      context.filter = [
+        "brightness(0.48)",
+        "contrast(1.35)",
+        "sepia(1)",
+        "saturate(8)",
+        "hue-rotate(-18deg)",
+        `blur(${Math.max(0.4, width / A3_WIDTH) * 1.1}px)`,
+      ].join(" ");
+      const rimOffset = width * 0.0035;
+      context.drawImage(
+        subjectImage,
+        rect.x - rimOffset,
+        rect.y,
+        rect.width,
+        rect.height,
+      );
+      context.restore();
+    }
+
     context.filter = [
       `brightness(${brightness})`,
       `contrast(${contrast})`,
@@ -641,38 +719,40 @@ function renderPoster(
     if (aiBackgroundEnabled && subjectImage) {
       context.save();
       context.globalCompositeOperation = "screen";
-      context.globalAlpha = outputProfile === "print" ? 0.1 : 0.14;
+      context.globalAlpha = outputProfile === "print" ? 0.035 : 0.05;
       context.filter = [
-        "brightness(0.62)",
-        "contrast(1.16)",
+        "brightness(0.78)",
+        "contrast(1.3)",
         "sepia(1)",
-        "saturate(6)",
+        "saturate(7)",
         "hue-rotate(-18deg)",
-        `blur(${Math.max(0.3, width / A3_WIDTH) * 0.9}px)`,
+        `blur(${Math.max(0.25, width / A3_WIDTH) * 0.42}px)`,
       ].join(" ");
       context.drawImage(subjectImage, rect.x, rect.y, rect.width, rect.height);
       context.restore();
     }
 
-    context.save();
-    context.globalCompositeOperation = "screen";
-    context.globalAlpha = 0.035 + intensity * 0.045;
-    context.filter = [
-      "brightness(0.62)",
-      "contrast(1.18)",
-      "saturate(0.42)",
-      "hue-rotate(168deg)",
-      `blur(${Math.max(0.35, width / A3_WIDTH) * 1.25}px)`,
-    ].join(" ");
-    const ghostExposure = width * 0.006;
-    context.drawImage(
-      activeImage,
-      rect.x + ghostExposure,
-      rect.y - ghostExposure * 0.45,
-      rect.width,
-      rect.height,
-    );
-    context.restore();
+    if (!aiBackgroundEnabled) {
+      context.save();
+      context.globalCompositeOperation = "screen";
+      context.globalAlpha = 0.035 + intensity * 0.045;
+      context.filter = [
+        "brightness(0.62)",
+        "contrast(1.18)",
+        "saturate(0.42)",
+        "hue-rotate(168deg)",
+        `blur(${Math.max(0.35, width / A3_WIDTH) * 1.25}px)`,
+      ].join(" ");
+      const ghostExposure = width * 0.006;
+      context.drawImage(
+        activeImage,
+        rect.x + ghostExposure,
+        rect.y - ghostExposure * 0.45,
+        rect.width,
+        rect.height,
+      );
+      context.restore();
+    }
   }
 
   if (outputProfile === "print") {
@@ -947,6 +1027,7 @@ export default function ObsessionPoster() {
   const imageRef = useRef<HTMLImageElement | null>(null);
   const subjectImageRef = useRef<HTMLImageElement | null>(null);
   const brandArtRef = useRef<HTMLImageElement | null>(null);
+  const aiBackdropRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -985,6 +1066,7 @@ export default function ObsessionPoster() {
   const [aiBackgroundState, setAiBackgroundState] = useState<AiBackgroundState>("idle");
   const [fontReady, setFontReady] = useState(false);
   const [brandReady, setBrandReady] = useState(false);
+  const [aiBackdropReady, setAiBackdropReady] = useState(false);
   const [experienceEntered, setExperienceEntered] = useState(false);
   const [previewProfile, setPreviewProfile] = useState<OutputProfile>("screen");
   const [outputAction, setOutputAction] = useState<"download" | "print-png" | "pdf" | "print" | "share" | null>(null);
@@ -1005,9 +1087,10 @@ export default function ObsessionPoster() {
       brandArtRef.current,
       previewProfile,
       subjectImageRef.current,
+      aiBackdropRef.current,
       aiBackgroundEnabled,
     );
-  }, [aiBackgroundEnabled, brandReady, controls, fileName, fontReady, previewProfile, toneProfile]);
+  }, [aiBackgroundEnabled, aiBackdropReady, brandReady, controls, fileName, fontReady, previewProfile, toneProfile]);
 
   useEffect(() => {
     void document.fonts.load('96px "Anton"').then(() => setFontReady(true));
@@ -1018,6 +1101,13 @@ export default function ObsessionPoster() {
       setBrandReady(true);
     };
     brandArt.src = "/obsession-title.png";
+    const aiBackdrop = new Image();
+    aiBackdrop.decoding = "async";
+    aiBackdrop.onload = () => {
+      aiBackdropRef.current = aiBackdrop;
+      setAiBackdropReady(true);
+    };
+    aiBackdrop.src = "/obsession-darkroom-ai.png";
     let enteredFrame: number | null = null;
     if (window.sessionStorage.getItem("obsession-entered") === "yes") {
       enteredFrame = window.requestAnimationFrame(() => setExperienceEntered(true));
@@ -1025,6 +1115,7 @@ export default function ObsessionPoster() {
     return () => {
       if (enteredFrame !== null) window.cancelAnimationFrame(enteredFrame);
       brandArt.onload = null;
+      aiBackdrop.onload = null;
     };
   }, []);
 
@@ -1486,6 +1577,7 @@ export default function ObsessionPoster() {
       brandArtRef.current,
       profile,
       subjectImageRef.current,
+      aiBackdropRef.current,
       aiBackgroundEnabled,
     );
     const rawBlob = await new Promise<Blob>((resolve, reject) => {
