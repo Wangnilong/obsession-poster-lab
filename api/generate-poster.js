@@ -160,6 +160,17 @@ const webHandler = {
       console.error("[ai-poster] generation failed", details);
       const message = `${details.message} ${details.responseBody}`.toLowerCase();
       if (
+        message.includes("valid credit card") ||
+        message.includes("add-credit-card")
+      ) {
+        return errorResponse(
+          request,
+          503,
+          "gateway_billing",
+          "AI 云端服务尚未完成支付验证，需要先在 Vercel 绑定有效银行卡。",
+        );
+      }
+      if (
         message.includes("credit") ||
         message.includes("quota") ||
         message.includes("insufficient_balance") ||

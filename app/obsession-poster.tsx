@@ -1171,7 +1171,10 @@ export default function ObsessionPoster() {
         error instanceof Error && "code" in error
           ? (error as Error & { code?: string }).code
           : "";
-      const blocked = code === "gateway_quota" || code === "gateway_auth";
+      const blocked =
+        code === "gateway_quota" ||
+        code === "gateway_auth" ||
+        code === "gateway_billing";
       setAiBackgroundState(blocked ? "blocked" : "error");
       setAiBackgroundEnabled(false);
       setStatus(
