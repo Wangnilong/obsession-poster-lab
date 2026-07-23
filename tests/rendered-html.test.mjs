@@ -41,39 +41,32 @@ test("server-renders the Obsession photo booth on its film route", async () => {
   assert.match(html, /直接打印 A4/);
   assert.match(html, /下载 A4 PDF/);
   assert.match(html, /保存 A3 屏幕版/);
-  assert.match(html, /暗房背景 \+ 渗人红光/);
+  assert.match(html, /电影级场景与灯光重绘/);
 });
 
 test("keeps pose AI and its runtime assets on-device", async () => {
-  const [page, model, segmentationModel, wasm, cinematicBackdrop] = await Promise.all([
+  const [page, model, wasm] = await Promise.all([
     readFile(new URL("../app/obsession-poster.tsx", import.meta.url), "utf8"),
     stat(new URL("../public/models/pose_landmarker_lite.task", import.meta.url)),
-    stat(new URL("../public/models/selfie_segmenter.tflite", import.meta.url)),
     stat(new URL("../public/mediapipe/wasm/vision_wasm_internal.wasm", import.meta.url)),
-    stat(new URL("../public/obsession-darkroom-ai.png", import.meta.url)),
   ]);
 
   assert.match(page, /@mediapipe\/tasks-vision/);
   assert.match(page, /detectForVideo/);
   assert.match(page, /controlsFromPose/);
-  assert.match(page, /ImageSegmenter\.createFromOptions/);
-  assert.match(page, /buildSubjectCutout/);
-  assert.match(page, /paintAiBackdrop/);
-  assert.match(page, /obsession-darkroom-ai\.png/);
-  assert.match(page, /selfie_segmenter\.tflite/);
   assert.match(page, /\(\[0, 3, 10\] as TimerSeconds\[\]\)/);
   assert.ok(model.size > 5_000_000);
-  assert.ok(segmentationModel.size > 200_000);
   assert.ok(wasm.size > 10_000_000);
-  assert.ok(cinematicBackdrop.size > 1_000_000);
 });
 
-test("keeps large uploads memory-safe and the subject locally exposed", async () => {
+test("keeps large uploads memory-safe and sends explicit cloud AI edits", async () => {
   const page = await readFile(new URL("../app/obsession-poster.tsx", import.meta.url), "utf8");
+  const api = await readFile(new URL("../api/generate-poster.js", import.meta.url), "utf8");
 
   assert.match(page, /MAX_WORKING_PIXELS = 12_000_000/);
-  assert.match(page, /MAX_CUTOUT_PIXELS = 8_000_000/);
   assert.match(page, /prepareWorkingImage/);
+  assert.match(page, /prepareCloudAiUpload/);
+  assert.match(page, /\/api\/generate-poster/);
   assert.match(page, /analyzeImageTone/);
   assert.match(page, /0\.4 \/ Math\.max\(0\.22, highlight\)/);
   assert.doesNotMatch(page, /setPointerCapture/);
@@ -89,4 +82,13 @@ test("keeps large uploads memory-safe and the subject locally exposed", async ()
   assert.match(page, /outputProfile === "print"/);
   assert.match(page, /@page\{size:A4 portrait/);
   assert.doesNotMatch(page, /handGlow/);
+
+  assert.match(api, /generateImage/);
+  assert.match(api, /openai\/gpt-image-2/);
+  assert.match(api, /quality: "high"/);
+  assert.match(api, /size: "2048x2896"/);
+  assert.match(api, /images: \[new Uint8Array/);
+  assert.match(api, /PRESERVE EXACTLY/);
+  assert.doesNotMatch(api, /process\.env\.OPENAI_API_KEY/);
+  assert.doesNotMatch(api, /sk-[A-Za-z0-9_-]{20,}/);
 });

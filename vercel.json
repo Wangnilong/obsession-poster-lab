@@ -4,6 +4,12 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build:pages",
   "outputDirectory": "github-dist",
+  "functions": {
+    "api/generate-poster.js": {
+      "maxDuration": 300,
+      "memory": 1024
+    }
+  },
   "headers": [
     {
       "source": "/models/(.*)",
