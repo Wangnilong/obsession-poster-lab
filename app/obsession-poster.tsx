@@ -18,6 +18,8 @@ const PREVIEW_WIDTH = 707;
 const PREVIEW_HEIGHT = 1000;
 const MAX_WORKING_PIXELS = 12_000_000;
 const MAX_WORKING_EDGE = 4200;
+const MAX_CUTOUT_PIXELS = 8_000_000;
+const MAX_CUTOUT_EDGE = 3600;
 
 type Controls = {
   intensity: number;
@@ -50,6 +52,22 @@ type PoseLandmarkerLike = {
   ) => { landmarks: PoseLandmark[][] };
   close: () => void;
 };
+
+type SegmentationMaskLike = {
+  width: number;
+  height: number;
+  getAsFloat32Array: () => Float32Array;
+  close: () => void;
+};
+
+type ImageSegmenterLike = {
+  segment: (source: HTMLImageElement) => {
+    confidenceMasks?: SegmentationMaskLike[];
+  };
+  close: () => void;
+};
+
+type AiBackgroundState = "idle" | "loading" | "ready" | "error";
 
 type PoseFeedback = {
   tone: "loading" | "good" | "adjust" | "missing";
@@ -463,6 +481,118 @@ function fitTitle(context: CanvasRenderingContext2D, width: number, height: numb
   return fontSize;
 }
 
+async function buildSubjectCutout(
+  image: HTMLImageElement,
+  segmenter: ImageSegmenterLike,
+) {
+  const result = segmenter.segment(image);
+  const mask = result.confidenceMasks?.[0];
+  if (!mask) throw new Error("Person mask unavailable");
+
+  try {
+    const confidence = mask.getAsFloat32Array();
+    const maskCanvas = document.createElement("canvas");
+    maskCanvas.width = mask.width;
+    maskCanvas.height = mask.height;
+    const maskContext = maskCanvas.getContext("2d", { willReadFrequently: false });
+    if (!maskContext) throw new Error("Mask canvas unavailable");
+
+    const maskImage = maskContext.createImageData(mask.width, mask.height);
+    for (let index = 0; index < confidence.length; index += 1) {
+      const normalized = clamp((confidence[index] - 0.16) / 0.7, 0, 1);
+      const softened = normalized * normalized * (3 - 2 * normalized);
+      const pixel = index * 4;
+      maskImage.data[pixel] = 255;
+      maskImage.data[pixel + 1] = 255;
+      maskImage.data[pixel + 2] = 255;
+      maskImage.data[pixel + 3] = Math.round(softened * 255);
+    }
+    maskContext.putImageData(maskImage, 0, 0);
+
+    const pixelScale = Math.sqrt(
+      MAX_CUTOUT_PIXELS / (image.naturalWidth * image.naturalHeight),
+    );
+    const edgeScale = MAX_CUTOUT_EDGE / Math.max(image.naturalWidth, image.naturalHeight);
+    const scale = Math.min(1, pixelScale, edgeScale);
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const cutout = document.createElement("canvas");
+    cutout.width = width;
+    cutout.height = height;
+    const context = cutout.getContext("2d", { alpha: true });
+    if (!context) throw new Error("Cutout canvas unavailable");
+
+    context.drawImage(image, 0, 0, width, height);
+    context.globalCompositeOperation = "destination-in";
+    context.filter = `blur(${Math.max(0.7, width / 1800)}px)`;
+    context.drawImage(maskCanvas, 0, 0, width, height);
+    context.filter = "none";
+    context.globalCompositeOperation = "source-over";
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      cutout.toBlob(
+        (resultBlob) => resultBlob
+          ? resolve(resultBlob)
+          : reject(new Error("Cutout export failed")),
+        "image/png",
+      );
+    });
+    cutout.width = 1;
+    cutout.height = 1;
+    maskCanvas.width = 1;
+    maskCanvas.height = 1;
+    return imageFromBlob(blob);
+  } finally {
+    mask.close();
+  }
+}
+
+function paintAiBackdrop(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  outputProfile: OutputProfile,
+) {
+  const paperLift = outputProfile === "print" ? 1.35 : 1;
+  const room = context.createLinearGradient(0, 0, width, height);
+  room.addColorStop(0, `rgba(48, 49, 40, ${0.62 * paperLift})`);
+  room.addColorStop(0.38, `rgba(18, 20, 18, ${0.84 * paperLift})`);
+  room.addColorStop(1, "rgba(3, 4, 4, 1)");
+  context.fillStyle = room;
+  context.fillRect(0, 0, width, height);
+
+  context.save();
+  context.globalCompositeOperation = "screen";
+  context.filter = `blur(${width * 0.028}px)`;
+  context.globalAlpha = outputProfile === "print" ? 0.13 : 0.09;
+  context.fillStyle = "#b9aa84";
+  const panelWidth = width * 0.16;
+  for (const center of [0.14, 0.38, 0.64, 0.88]) {
+    context.fillRect(width * center - panelWidth / 2, -height * 0.05, panelWidth, height * 0.54);
+  }
+  context.restore();
+
+  context.save();
+  context.translate(width * 0.5, height * 0.34);
+  context.scale(1, 1.32);
+  context.globalCompositeOperation = "screen";
+  const redHalo = context.createRadialGradient(0, 0, 0, 0, 0, width * 0.43);
+  redHalo.addColorStop(0, `rgba(195, 30, 28, ${outputProfile === "print" ? 0.38 : 0.48})`);
+  redHalo.addColorStop(0.24, "rgba(145, 14, 18, 0.31)");
+  redHalo.addColorStop(0.58, "rgba(76, 5, 9, 0.15)");
+  redHalo.addColorStop(1, "rgba(0, 0, 0, 0)");
+  context.fillStyle = redHalo;
+  context.fillRect(-width, -height, width * 2, height * 2);
+  context.restore();
+
+  const floor = context.createLinearGradient(0, height * 0.48, 0, height);
+  floor.addColorStop(0, "rgba(4, 4, 4, 0)");
+  floor.addColorStop(0.22, "rgba(4, 4, 4, 0.56)");
+  floor.addColorStop(1, "rgba(0, 0, 0, 0.96)");
+  context.fillStyle = floor;
+  context.fillRect(0, height * 0.42, width, height * 0.58);
+}
+
 function renderPoster(
   canvas: HTMLCanvasElement,
   width: number,
@@ -472,6 +602,8 @@ function renderPoster(
   toneProfile: ToneProfile,
   brandArt: HTMLImageElement | null = null,
   outputProfile: OutputProfile = "screen",
+  subjectImage: HTMLImageElement | null = null,
+  aiBackgroundEnabled = false,
 ) {
   canvas.width = width;
   canvas.height = height;
@@ -481,8 +613,14 @@ function renderPoster(
   context.fillStyle = "#0b0c0b";
   context.fillRect(0, 0, width, height);
 
-  if (image) {
-    const rect = coverRect(image.naturalWidth, image.naturalHeight, width, height, controls);
+  const activeImage = aiBackgroundEnabled && subjectImage ? subjectImage : image;
+
+  if (aiBackgroundEnabled && subjectImage) {
+    paintAiBackdrop(context, width, height, outputProfile);
+  }
+
+  if (activeImage) {
+    const rect = coverRect(activeImage.naturalWidth, activeImage.naturalHeight, width, height, controls);
     const intensity = controls.intensity / 100;
     const screenBrightness = 1 + (toneProfile.brightness - 1) * intensity;
     const screenContrast = 1 + (toneProfile.contrast - 1) * intensity;
@@ -497,8 +635,24 @@ function renderPoster(
       `sepia(${toneProfile.sepia * intensity})`,
       `blur(${Math.max(0.12, width / A3_WIDTH) * 0.62}px)`,
     ].join(" ");
-    context.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+    context.drawImage(activeImage, rect.x, rect.y, rect.width, rect.height);
     context.filter = "none";
+
+    if (aiBackgroundEnabled && subjectImage) {
+      context.save();
+      context.globalCompositeOperation = "screen";
+      context.globalAlpha = outputProfile === "print" ? 0.1 : 0.14;
+      context.filter = [
+        "brightness(0.62)",
+        "contrast(1.16)",
+        "sepia(1)",
+        "saturate(6)",
+        "hue-rotate(-18deg)",
+        `blur(${Math.max(0.3, width / A3_WIDTH) * 0.9}px)`,
+      ].join(" ");
+      context.drawImage(subjectImage, rect.x, rect.y, rect.width, rect.height);
+      context.restore();
+    }
 
     context.save();
     context.globalCompositeOperation = "screen";
@@ -512,7 +666,7 @@ function renderPoster(
     ].join(" ");
     const ghostExposure = width * 0.006;
     context.drawImage(
-      image,
+      activeImage,
       rect.x + ghostExposure,
       rect.y - ghostExposure * 0.45,
       rect.width,
@@ -791,6 +945,7 @@ const HandGuide = ({ side }: { side: "left" | "right" }) => (
 export default function ObsessionPoster() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const subjectImageRef = useRef<HTMLImageElement | null>(null);
   const brandArtRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -798,6 +953,8 @@ export default function ObsessionPoster() {
   const streamRef = useRef<MediaStream | null>(null);
   const poseLandmarkerRef = useRef<PoseLandmarkerLike | null>(null);
   const poseInitRef = useRef<Promise<PoseLandmarkerLike> | null>(null);
+  const imageSegmenterRef = useRef<ImageSegmenterLike | null>(null);
+  const imageSegmenterInitRef = useRef<Promise<ImageSegmenterLike> | null>(null);
   const latestPoseRef = useRef<PoseLandmark[] | null>(null);
   const poseFrameRef = useRef<number | null>(null);
   const lastPoseVideoTimeRef = useRef(-1);
@@ -824,6 +981,8 @@ export default function ObsessionPoster() {
   const [timerSeconds, setTimerSeconds] = useState<TimerSeconds>(3);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [aiAdjusted, setAiAdjusted] = useState(false);
+  const [aiBackgroundEnabled, setAiBackgroundEnabled] = useState(false);
+  const [aiBackgroundState, setAiBackgroundState] = useState<AiBackgroundState>("idle");
   const [fontReady, setFontReady] = useState(false);
   const [brandReady, setBrandReady] = useState(false);
   const [experienceEntered, setExperienceEntered] = useState(false);
@@ -845,8 +1004,10 @@ export default function ObsessionPoster() {
       toneProfile,
       brandArtRef.current,
       previewProfile,
+      subjectImageRef.current,
+      aiBackgroundEnabled,
     );
-  }, [brandReady, controls, fileName, fontReady, previewProfile, toneProfile]);
+  }, [aiBackgroundEnabled, brandReady, controls, fileName, fontReady, previewProfile, toneProfile]);
 
   useEffect(() => {
     void document.fonts.load('96px "Anton"').then(() => setFontReady(true));
@@ -916,6 +1077,42 @@ export default function ObsessionPoster() {
     });
 
     return poseInitRef.current;
+  }, []);
+
+  const ensureImageSegmenter = useCallback(() => {
+    if (imageSegmenterRef.current) return Promise.resolve(imageSegmenterRef.current);
+    if (imageSegmenterInitRef.current) return imageSegmenterInitRef.current;
+
+    imageSegmenterInitRef.current = (async () => {
+      const vision = await import("@mediapipe/tasks-vision");
+      const fileset = await vision.FilesetResolver.forVisionTasks("/mediapipe/wasm");
+      const options = {
+        baseOptions: {
+          modelAssetPath: "/models/selfie_segmenter.tflite",
+          delegate: "GPU" as const,
+        },
+        runningMode: "IMAGE" as const,
+        outputConfidenceMasks: true,
+        outputCategoryMask: false,
+      };
+
+      let segmenter;
+      try {
+        segmenter = await vision.ImageSegmenter.createFromOptions(fileset, options);
+      } catch {
+        segmenter = await vision.ImageSegmenter.createFromOptions(fileset, {
+          ...options,
+          baseOptions: { ...options.baseOptions, delegate: "CPU" },
+        });
+      }
+      imageSegmenterRef.current = segmenter as unknown as ImageSegmenterLike;
+      return imageSegmenterRef.current;
+    })().catch((error) => {
+      imageSegmenterInitRef.current = null;
+      throw error;
+    });
+
+    return imageSegmenterInitRef.current;
   }, []);
 
   useEffect(() => {
@@ -1041,7 +1238,47 @@ export default function ObsessionPoster() {
   useEffect(() => () => {
     if (countdownTimeoutRef.current) clearTimeout(countdownTimeoutRef.current);
     poseLandmarkerRef.current?.close();
+    imageSegmenterRef.current?.close();
   }, []);
+
+  const toggleAiBackground = useCallback(async () => {
+    if (aiBackgroundEnabled) {
+      setAiBackgroundEnabled(false);
+      setStatus("AI 背景已关闭，恢复照片原背景。");
+      return;
+    }
+
+    const image = imageRef.current;
+    if (!image) {
+      setStatus("请先拍摄或上传一张人物照片，再生成 AI 背景。");
+      fileInputRef.current?.click();
+      return;
+    }
+
+    if (subjectImageRef.current && aiBackgroundState === "ready") {
+      setAiBackgroundEnabled(true);
+      setStatus("AI 背景和红色人物光已恢复。");
+      return;
+    }
+
+    setAiBackgroundState("loading");
+    setStatus("AI 正在识别人物、生成暗房背景和红光……");
+    await new Promise((resolve) => window.setTimeout(resolve, 30));
+
+    try {
+      const segmenter = await ensureImageSegmenter();
+      const subject = await buildSubjectCutout(image, segmenter);
+      if (image !== imageRef.current) return;
+      subjectImageRef.current = subject;
+      setAiBackgroundState("ready");
+      setAiBackgroundEnabled(true);
+      setStatus("AI 背景已生成：人物已分离，暗房和渗人红光已加入最终海报。");
+    } catch {
+      setAiBackgroundState("error");
+      setAiBackgroundEnabled(false);
+      setStatus("这张照片暂时没能分离出人物。请换一张人物轮廓更清楚的照片重试。");
+    }
+  }, [aiBackgroundEnabled, aiBackgroundState, ensureImageSegmenter]);
 
   const autoAlign = useCallback(async (image: HTMLImageElement) => {
     const Detector = (window as typeof window & { FaceDetector?: FaceDetectorConstructor })
@@ -1087,6 +1324,9 @@ export default function ObsessionPoster() {
         const image = await imageFromBlob(prepared.blob);
         if (loadId !== imageLoadIdRef.current) return;
         imageRef.current = image;
+        subjectImageRef.current = null;
+        setAiBackgroundEnabled(false);
+        setAiBackgroundState("idle");
         setToneProfile(analyzeImageTone(image));
         setFileName(file.name);
         const aiControls = poseForAdjustment
@@ -1245,6 +1485,8 @@ export default function ObsessionPoster() {
       toneProfile,
       brandArtRef.current,
       profile,
+      subjectImageRef.current,
+      aiBackgroundEnabled,
     );
     const rawBlob = await new Promise<Blob>((resolve, reject) => {
       exportCanvas.toBlob(
@@ -1537,6 +1779,7 @@ export default function ObsessionPoster() {
           </div>
           <div className={`quality-badge quality-${quality.tone}`}>{quality.label}</div>
           {aiAdjusted && <div className="ai-adjusted-badge">AI 已校正构图</div>}
+          {aiBackgroundEnabled && <div className="ai-background-badge">AI 背景 · RED HALO</div>}
         </div>
       </section>
 
@@ -1561,6 +1804,29 @@ export default function ObsessionPoster() {
             <Control label="人物大小" value={controls.scale} min={100} max={150} onChange={(value) => updateControl("scale", value)} />
             <Control label="左右位置" value={controls.offsetX} min={-100} max={100} suffix="" onChange={(value) => updateControl("offsetX", value)} />
             <Control label="上下位置" value={controls.offsetY} min={-100} max={100} suffix="" onChange={(value) => updateControl("offsetY", value)} />
+          </div>
+          <div className={`ai-background-control ai-background-${aiBackgroundState}`}>
+            <div>
+              <span>AI BACKGROUND / LOCAL</span>
+              <strong>暗房背景 + 渗人红光</strong>
+              <small>AI 只在这台设备上识别人像，不上传照片。</small>
+            </div>
+            <button
+              type="button"
+              aria-pressed={aiBackgroundEnabled}
+              disabled={aiBackgroundState === "loading"}
+              onClick={toggleAiBackground}
+            >
+              {aiBackgroundState === "loading"
+                ? "计算中…"
+                : aiBackgroundEnabled
+                  ? "关闭"
+                  : aiBackgroundState === "ready"
+                    ? "重新开启"
+                    : aiBackgroundState === "error"
+                      ? "重试"
+                      : "生成"}
+            </button>
           </div>
           <p className="drag-tip">用人物大小、左右位置和上下位置调整构图。</p>
         </div>
