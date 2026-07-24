@@ -18,7 +18,6 @@ const PREVIEW_WIDTH = 707;
 const PREVIEW_HEIGHT = 1000;
 const MAX_WORKING_PIXELS = 12_000_000;
 const MAX_WORKING_EDGE = 4200;
-const CLOUD_AI_ENDPOINT = "https://obsession-poster.vercel.app/api/generate-poster";
 
 type Controls = {
   intensity: number;
@@ -51,8 +50,6 @@ type PoseLandmarkerLike = {
   ) => { landmarks: PoseLandmark[][] };
   close: () => void;
 };
-
-type AiBackgroundState = "idle" | "loading" | "ready" | "error" | "blocked";
 
 type PoseFeedback = {
   tone: "loading" | "good" | "adjust" | "missing";
@@ -239,49 +236,6 @@ function imageFromBlob(blob: Blob) {
     };
     image.src = url;
   });
-}
-
-async function prepareCloudAiUpload(image: HTMLImageElement) {
-  const maxEdge = 2560;
-  const scale = Math.min(
-    1,
-    maxEdge / Math.max(image.naturalWidth, image.naturalHeight),
-  );
-  const width = Math.max(1, Math.round(image.naturalWidth * scale));
-  const height = Math.max(1, Math.round(image.naturalHeight * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d", { alpha: false });
-  if (!context) throw new Error("AI upload canvas unavailable");
-  context.fillStyle = "#090909";
-  context.fillRect(0, 0, width, height);
-  context.drawImage(image, 0, 0, width, height);
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (result) => result
-        ? resolve(result)
-        : reject(new Error("AI upload conversion failed")),
-      "image/jpeg",
-      0.94,
-    );
-  });
-  canvas.width = 1;
-  canvas.height = 1;
-  return blob;
-}
-
-function getCloudAiEndpoint() {
-  if (
-    window.location.hostname === "obsession-poster.vercel.app" ||
-    window.location.hostname.endsWith("-cyte.vercel.app") ||
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1"
-  ) {
-    return "/api/generate-poster";
-  }
-  return CLOUD_AI_ENDPOINT;
 }
 
 function analyzeImageTone(image: HTMLImageElement): ToneProfile {
@@ -518,8 +472,6 @@ function renderPoster(
   toneProfile: ToneProfile,
   brandArt: HTMLImageElement | null = null,
   outputProfile: OutputProfile = "screen",
-  subjectImage: HTMLImageElement | null = null,
-  aiBackgroundEnabled = false,
 ) {
   canvas.width = width;
   canvas.height = height;
@@ -529,60 +481,50 @@ function renderPoster(
   context.fillStyle = "#0b0c0b";
   context.fillRect(0, 0, width, height);
 
-  const activeImage = aiBackgroundEnabled && subjectImage ? subjectImage : image;
-
-  if (activeImage) {
-    const rect = coverRect(activeImage.naturalWidth, activeImage.naturalHeight, width, height, controls);
+  if (image) {
+    const rect = coverRect(image.naturalWidth, image.naturalHeight, width, height, controls);
     const intensity = controls.intensity / 100;
     const screenBrightness = 1 + (toneProfile.brightness - 1) * intensity;
     const screenContrast = 1 + (toneProfile.contrast - 1) * intensity;
     const screenSaturation = 1 + (toneProfile.saturation - 1) * intensity;
     const brightness = outputProfile === "print"
       ? Math.min(1.08, screenBrightness * 1.32)
-      : aiBackgroundEnabled
-        ? clamp(screenBrightness * 1.18, 0.78, 1.06)
-        : screenBrightness;
+      : screenBrightness;
     const contrast = outputProfile === "print"
       ? 1 + (screenContrast - 1) * 0.42
-      : aiBackgroundEnabled
-        ? clamp(screenContrast * 1.03, 1.04, 1.28)
-        : screenContrast;
+      : screenContrast;
     const saturation = outputProfile === "print"
       ? Math.max(0.76, screenSaturation * 0.94)
-      : aiBackgroundEnabled
-        ? clamp(screenSaturation * 0.9, 0.58, 0.88)
-        : screenSaturation;
+      : screenSaturation;
 
     context.filter = [
       `brightness(${brightness})`,
       `contrast(${contrast})`,
       `saturate(${saturation})`,
-      `sepia(${aiBackgroundEnabled ? 0.035 : toneProfile.sepia * intensity})`,
-      `blur(${Math.max(0.08, width / A3_WIDTH) * (aiBackgroundEnabled ? 0.24 : 0.62)}px)`,
+      `sepia(${toneProfile.sepia * intensity})`,
+      `blur(${Math.max(0.08, width / A3_WIDTH) * 0.62}px)`,
     ].join(" ");
-    context.drawImage(activeImage, rect.x, rect.y, rect.width, rect.height);
+    context.drawImage(image, rect.x, rect.y, rect.width, rect.height);
     context.filter = "none";
-    if (!aiBackgroundEnabled) {
-      context.save();
-      context.globalCompositeOperation = "screen";
-      context.globalAlpha = 0.035 + intensity * 0.045;
-      context.filter = [
-        "brightness(0.62)",
-        "contrast(1.18)",
-        "saturate(0.42)",
-        "hue-rotate(168deg)",
-        `blur(${Math.max(0.35, width / A3_WIDTH) * 1.25}px)`,
-      ].join(" ");
-      const ghostExposure = width * 0.006;
-      context.drawImage(
-        activeImage,
-        rect.x + ghostExposure,
-        rect.y - ghostExposure * 0.45,
-        rect.width,
-        rect.height,
-      );
-      context.restore();
-    }
+    context.save();
+    context.globalCompositeOperation = "screen";
+    context.globalAlpha = 0.035 + intensity * 0.045;
+    context.filter = [
+      "brightness(0.62)",
+      "contrast(1.18)",
+      "saturate(0.42)",
+      "hue-rotate(168deg)",
+      `blur(${Math.max(0.35, width / A3_WIDTH) * 1.25}px)`,
+    ].join(" ");
+    const ghostExposure = width * 0.006;
+    context.drawImage(
+      image,
+      rect.x + ghostExposure,
+      rect.y - ghostExposure * 0.45,
+      rect.width,
+      rect.height,
+    );
+    context.restore();
   }
 
   if (outputProfile === "print") {
@@ -623,7 +565,7 @@ function renderPoster(
   context.fillRect(-width, -height, width * 2, height * 2);
   context.restore();
 
-  if (image && !aiBackgroundEnabled) {
+  if (image) {
     const handLightStrength = (0.065 + (controls.intensity / 100) * 0.045) * (outputProfile === "print" ? 1.55 : 1);
     const paintHandLight = (centerX: number, centerY: number) => {
       context.save();
@@ -855,7 +797,6 @@ const HandGuide = ({ side }: { side: "left" | "right" }) => (
 export default function ObsessionPoster() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  const subjectImageRef = useRef<HTMLImageElement | null>(null);
   const brandArtRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -883,14 +824,12 @@ export default function ObsessionPoster() {
   const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment");
   const [poseFeedback, setPoseFeedback] = useState<PoseFeedback>({
     tone: "loading",
-    label: "AI 正在准备…",
+    label: "站位检测正在准备…",
     score: 0,
   });
   const [timerSeconds, setTimerSeconds] = useState<TimerSeconds>(3);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [aiAdjusted, setAiAdjusted] = useState(false);
-  const [aiBackgroundEnabled, setAiBackgroundEnabled] = useState(false);
-  const [aiBackgroundState, setAiBackgroundState] = useState<AiBackgroundState>("idle");
+  const [autoAdjusted, setAutoAdjusted] = useState(false);
   const [fontReady, setFontReady] = useState(false);
   const [brandReady, setBrandReady] = useState(false);
   const [experienceEntered, setExperienceEntered] = useState(false);
@@ -912,10 +851,8 @@ export default function ObsessionPoster() {
       toneProfile,
       brandArtRef.current,
       previewProfile,
-      subjectImageRef.current,
-      aiBackgroundEnabled,
     );
-  }, [aiBackgroundEnabled, brandReady, controls, fileName, fontReady, previewProfile, toneProfile]);
+  }, [brandReady, controls, fileName, fontReady, previewProfile, toneProfile]);
 
   useEffect(() => {
     void document.fonts.load('96px "Anton"').then(() => setFontReady(true));
@@ -1002,7 +939,7 @@ export default function ObsessionPoster() {
       setCameraReady(false);
       setCameraError("");
       latestPoseRef.current = null;
-      setPoseFeedback({ tone: "loading", label: "AI 正在准备…", score: 0 });
+      setPoseFeedback({ tone: "loading", label: "站位检测正在准备…", score: 0 });
       if (!navigator.mediaDevices?.getUserMedia) {
         setCameraError("当前浏览器不支持实时取景，请使用系统高清相机。");
         return;
@@ -1112,79 +1049,6 @@ export default function ObsessionPoster() {
     poseLandmarkerRef.current?.close();
   }, []);
 
-  const toggleAiBackground = useCallback(async () => {
-    if (aiBackgroundEnabled) {
-      setAiBackgroundEnabled(false);
-      setStatus("高清 AI 成片已关闭，已恢复原始照片。");
-      return;
-    }
-
-    const image = imageRef.current;
-    if (!image) {
-      setStatus("请先拍摄或上传人物照片，再生成高清 AI 成片。");
-      fileInputRef.current?.click();
-      return;
-    }
-
-    if (subjectImageRef.current && aiBackgroundState === "ready") {
-      setAiBackgroundEnabled(true);
-      setStatus("高清 AI 成片已恢复。");
-      return;
-    }
-
-    setAiBackgroundState("loading");
-    setStatus("云端 AI 正在重建场景和人物受光，通常需要 30–90 秒，请保持页面打开。");
-    await new Promise((resolve) => window.setTimeout(resolve, 30));
-
-    try {
-      const upload = await prepareCloudAiUpload(image);
-      const form = new FormData();
-      form.append("image", upload, "obsession-source.jpg");
-      const response = await fetch(getCloudAiEndpoint(), {
-        method: "POST",
-        body: form,
-      });
-      if (!response.ok) {
-        let message = "高清 AI 暂时没有生成成功，请稍后重试。";
-        let code = "";
-        try {
-          const details = await response.json();
-          if (typeof details?.error === "string") message = details.error;
-          if (typeof details?.code === "string") code = details.code;
-        } catch {
-          // Keep the safe fallback message.
-        }
-        const cloudError = new Error(message) as Error & { code?: string };
-        cloudError.code = code;
-        throw cloudError;
-      }
-
-      const generatedBlob = await response.blob();
-      const subject = await imageFromBlob(generatedBlob);
-      if (image !== imageRef.current) return;
-      subjectImageRef.current = subject;
-      setAiBackgroundState("ready");
-      setAiBackgroundEnabled(true);
-      setStatus("高清 AI 成片已完成：背景、红色逆光和人物受光均由图像模型重新生成。");
-    } catch (error) {
-      const code =
-        error instanceof Error && "code" in error
-          ? (error as Error & { code?: string }).code
-          : "";
-      const blocked =
-        code === "gateway_quota" ||
-        code === "gateway_auth" ||
-        code === "gateway_billing";
-      setAiBackgroundState(blocked ? "blocked" : "error");
-      setAiBackgroundEnabled(false);
-      setStatus(
-        error instanceof Error
-          ? error.message
-          : "高清 AI 暂时没有生成成功，请稍后重试。",
-      );
-    }
-  }, [aiBackgroundEnabled, aiBackgroundState]);
-
   const autoAlign = useCallback(async (image: HTMLImageElement) => {
     const Detector = (window as typeof window & { FaceDetector?: FaceDetectorConstructor })
       .FaceDetector;
@@ -1229,16 +1093,13 @@ export default function ObsessionPoster() {
         const image = await imageFromBlob(prepared.blob);
         if (loadId !== imageLoadIdRef.current) return;
         imageRef.current = image;
-        subjectImageRef.current = null;
-        setAiBackgroundEnabled(false);
-        setAiBackgroundState("idle");
         setToneProfile(analyzeImageTone(image));
         setFileName(file.name);
         const aiControls = poseForAdjustment
           ? controlsFromPose(poseForAdjustment)
           : null;
         setControls(aiControls ?? DEFAULT_CONTROLS);
-        setAiAdjusted(Boolean(aiControls));
+        setAutoAdjusted(Boolean(aiControls));
         const sourceWidth = prepared.dimensions?.width ?? image.naturalWidth;
         const sourceHeight = prepared.dimensions?.height ?? image.naturalHeight;
         const megapixels = (sourceWidth * sourceHeight) / 1_000_000;
@@ -1390,8 +1251,6 @@ export default function ObsessionPoster() {
       toneProfile,
       brandArtRef.current,
       profile,
-      subjectImageRef.current,
-      aiBackgroundEnabled,
     );
     const rawBlob = await new Promise<Blob>((resolve, reject) => {
       exportCanvas.toBlob(
@@ -1683,8 +1542,7 @@ export default function ObsessionPoster() {
             <span>300 DPI</span>
           </div>
           <div className={`quality-badge quality-${quality.tone}`}>{quality.label}</div>
-          {aiAdjusted && <div className="ai-adjusted-badge">AI 已校正构图</div>}
-          {aiBackgroundEnabled && <div className="ai-background-badge">GPT IMAGE 2 · HIGH</div>}
+          {autoAdjusted && <div className="alignment-badge">已自动校正构图</div>}
         </div>
       </section>
 
@@ -1709,31 +1567,6 @@ export default function ObsessionPoster() {
             <Control label="人物大小" value={controls.scale} min={100} max={150} onChange={(value) => updateControl("scale", value)} />
             <Control label="左右位置" value={controls.offsetX} min={-100} max={100} suffix="" onChange={(value) => updateControl("offsetX", value)} />
             <Control label="上下位置" value={controls.offsetY} min={-100} max={100} suffix="" onChange={(value) => updateControl("offsetY", value)} />
-          </div>
-          <div className={`ai-background-control ai-background-${aiBackgroundState}`}>
-            <div>
-              <span>CLOUD AI / HIGH</span>
-              <strong>电影级场景与灯光重绘</strong>
-              <small>点击后照片会发送到云端 AI，只重绘背景与受光；预计 30–90 秒。</small>
-            </div>
-            <button
-              type="button"
-              aria-pressed={aiBackgroundEnabled}
-              disabled={aiBackgroundState === "loading" || aiBackgroundState === "blocked"}
-              onClick={toggleAiBackground}
-            >
-              {aiBackgroundState === "loading"
-                ? "生成中…"
-                : aiBackgroundEnabled
-                  ? "关闭"
-                  : aiBackgroundState === "ready"
-                    ? "重新开启"
-                    : aiBackgroundState === "blocked"
-                      ? "服务未开通"
-                    : aiBackgroundState === "error"
-                      ? "重试"
-                      : "高清生成"}
-            </button>
           </div>
           <p className="drag-tip">用人物大小、左右位置和上下位置调整构图。</p>
         </div>
@@ -1816,7 +1649,7 @@ export default function ObsessionPoster() {
                 className={`pose-feedback pose-feedback-${poseFeedback.tone}`}
                 role="status"
                 aria-live="polite"
-                aria-label={`AI 站位检测：${poseFeedback.label}`}
+                aria-label={`站位检测：${poseFeedback.label}`}
               >
                 <i />
                 <span>{poseFeedback.label}</span>

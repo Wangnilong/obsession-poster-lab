@@ -41,10 +41,10 @@ test("server-renders the Obsession photo booth on its film route", async () => {
   assert.match(html, /直接打印 A4/);
   assert.match(html, /下载 A4 PDF/);
   assert.match(html, /保存 A3 屏幕版/);
-  assert.match(html, /电影级场景与灯光重绘/);
+  assert.doesNotMatch(html, /CLOUD AI/);
 });
 
-test("keeps pose AI and its runtime assets on-device", async () => {
+test("keeps the pose guide and its runtime assets on-device", async () => {
   const [page, model, wasm] = await Promise.all([
     readFile(new URL("../app/obsession-poster.tsx", import.meta.url), "utf8"),
     stat(new URL("../public/models/pose_landmarker_lite.task", import.meta.url)),
@@ -59,14 +59,13 @@ test("keeps pose AI and its runtime assets on-device", async () => {
   assert.ok(wasm.size > 10_000_000);
 });
 
-test("keeps large uploads memory-safe and sends explicit cloud AI edits", async () => {
+test("keeps large uploads memory-safe and renders locally", async () => {
   const page = await readFile(new URL("../app/obsession-poster.tsx", import.meta.url), "utf8");
-  const api = await readFile(new URL("../api/generate-poster.js", import.meta.url), "utf8");
 
   assert.match(page, /MAX_WORKING_PIXELS = 12_000_000/);
   assert.match(page, /prepareWorkingImage/);
-  assert.match(page, /prepareCloudAiUpload/);
-  assert.match(page, /\/api\/generate-poster/);
+  assert.doesNotMatch(page, /prepareCloudAiUpload/);
+  assert.doesNotMatch(page, /\/api\/generate-poster/);
   assert.match(page, /analyzeImageTone/);
   assert.match(page, /0\.4 \/ Math\.max\(0\.22, highlight\)/);
   assert.doesNotMatch(page, /setPointerCapture/);
@@ -82,13 +81,4 @@ test("keeps large uploads memory-safe and sends explicit cloud AI edits", async 
   assert.match(page, /outputProfile === "print"/);
   assert.match(page, /@page\{size:A4 portrait/);
   assert.doesNotMatch(page, /handGlow/);
-
-  assert.match(api, /generateImage/);
-  assert.match(api, /openai\/gpt-image-2/);
-  assert.match(api, /quality: "high"/);
-  assert.match(api, /size: "2048x2896"/);
-  assert.match(api, /images: \[new Uint8Array/);
-  assert.match(api, /PRESERVE EXACTLY/);
-  assert.doesNotMatch(api, /process\.env\.OPENAI_API_KEY/);
-  assert.doesNotMatch(api, /sk-[A-Za-z0-9_-]{20,}/);
 });
