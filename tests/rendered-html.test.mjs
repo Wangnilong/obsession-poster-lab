@@ -14,17 +14,31 @@ async function render(pathname = "/") {
   );
 }
 
-test("server-renders the reusable Cosmos film index", async () => {
+test("server-renders the themeable cosmosfilm42 editorial index", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /COSMOS FILM 42/);
-  assert.match(html, /cosmos-film42-logo\.png/);
-  assert.match(html, /电影项目/);
-  assert.match(html, /\.\/obsession\//);
-  assert.match(html, /COMING SOON/);
+  assert.match(html, /cosmosfilm42/);
+  assert.match(html, /宇宙观影团/);
+  assert.match(html, /这一期，我们在做什么/);
+  assert.match(html, /\/issues\/obsession\//);
+  assert.match(html, /\/obsession\//);
+  assert.match(html, /微信购票入口即将开放/);
+  assert.match(html, /--issue-accent/);
+});
+
+test("server-renders a standalone editorial page for each issue", async () => {
+  const response = await render("/issues/obsession");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /花为什么/);
+  assert.match(html, /挡住了脸/);
+  assert.match(html, /READING INDEX/);
+  assert.match(html, /打开 Obsession 海报暗房/);
+  assert.match(html, /微信购票入口即将开放/);
 });
 
 test("server-renders the Obsession photo booth on its film route", async () => {
@@ -35,7 +49,7 @@ test("server-renders the Obsession photo booth on its film route", async () => {
   assert.match(html, /OBSESSION/);
   assert.match(html, /进入相机/);
   assert.match(html, /original-poster\.png/);
-  assert.match(html, /cosmos-film42-logo\.png/);
+  assert.match(html, /cosmosfilm42/);
   assert.match(html, /3508 × 4961/);
   assert.match(html, /2480 × 3508/);
   assert.match(html, /直接打印 A4/);

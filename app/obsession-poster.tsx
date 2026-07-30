@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- the EdgeOne/Vite build serves public assets directly */
+/* eslint-disable @next/next/no-img-element, @next/next/no-html-link-for-pages -- static EdgeOne/Vite routes use portable anchors */
 
 import {
   ChangeEvent,
@@ -1447,14 +1447,9 @@ export default function ObsessionPoster() {
 
       <header className="topbar">
         <div className="film-brand">
-          <a className="site-back" href="../" aria-label="返回 Cosmos Film 42 主页">
-            <img
-              className="site-back-logo"
-              src="/cosmos-film42-logo.png"
-              width={595}
-              height={472}
-              alt="宇宙戏映"
-            />
+          <a className="site-back" href="/" aria-label="返回 cosmosfilm42 宇宙观影团主页">
+            <span className="site-back-glyph" aria-hidden="true">42</span>
+            <span className="visually-hidden">cosmosfilm42 宇宙观影团</span>
           </a>
           <a className="wordmark" href="#booth" aria-label="Obsession 拍照亭顶部">
             OBSESSION

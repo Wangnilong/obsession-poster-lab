@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import ObsessionPoster from "../obsession-poster";
 
 export const metadata: Metadata = {
-  title: "OBSESSION 海报暗房 — COSMOS FILM 42",
+  title: "OBSESSION 海报暗房 — cosmosfilm42 宇宙观影团",
   description: "按电影原海报构图拍照，在手机本地生成 A3 300 DPI 的 OBSESSION 海报。",
 };
 
