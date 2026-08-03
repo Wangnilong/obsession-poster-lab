@@ -18,9 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
   const origin = `${protocol}://${host}`;
-  const title = "cosmosfilm42 — 宇宙观影团";
-  const description = "放映、写作与互动企划。每一期电影，都拥有自己的颜色和独立页面。";
-  const socialImage = `${origin}/og.png`;
+  const title = "宇宙放映42 — 我们正在做的事";
+  const description = "把值得的电影带到愿意相遇的人面前。独立观影实践、现场交流与映后记录。";
+  const socialImage = `${origin}/og-cosmos42.png`;
 
   return {
     title,
@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [{ url: socialImage, width: 1536, height: 1024, alt: "cosmosfilm42 宇宙观影团" }],
+      images: [{ url: socialImage, width: 1536, height: 1024, alt: "宇宙放映42" }],
     },
     twitter: {
       card: "summary_large_image",

@@ -1,190 +1,274 @@
 /* eslint-disable @next/next/no-img-element, @next/next/no-html-link-for-pages -- static EdgeOne/Vite routes use portable anchors */
-import type { CSSProperties } from "react";
-import {
-  currentIssue,
-  editorialIssues,
-  issueUrl,
-} from "../src/editorial";
+
+const screeningFlow = [
+  ["01", "选片", "找到值得被看见的作品"],
+  ["02", "解释", "研究文本与视觉，建立期待"],
+  ["03", "聚集", "完成传播、报名与选座"],
+  ["04", "发生", "放映、仪式、嘉宾与映后"],
+  ["05", "留下", "反馈、记录、社群与复看"],
+];
+
+const programmeLines = [
+  {
+    title: "流行文化共创",
+    copy: "从《芭比》派对到哈利·波特系列观影礼，让熟悉的电影成为共同节日。",
+    image: "/cosmos42/barbie-wall.jpg",
+    alt: "《芭比》放映现场观众合影墙",
+  },
+  {
+    title: "经典与艺术实验",
+    copy: "默片现场配乐、女性影像、身体性展映和短片巡游，让放映形式本身成为创作。",
+    image: "/cosmos42/train.jpg",
+    alt: "《火车进站》影片画面",
+  },
+  {
+    title: "现实议题与本地故事",
+    copy: "社工实践、女性叙事、独立纪录片与深圳题材，让电影和真实生活重新接通。",
+    image: "/cosmos42/broad-daylight.jpg",
+    alt: "电影《白日之下》海报",
+  },
+];
+
+const collaborators = [
+  ["影院 / 放映方", "万象影城、百老汇电影中心、全国艺联"],
+  ["创作者 / 嘉宾", "导演、制片、演员、学者、音乐人与行业实践者"],
+  ["社群 / 机构", "绿色蔷薇、BC、声色、友团与青年文化空间"],
+  ["影迷 / 志愿者", "设计、摄影、文案、翻译、物料与现场支持"],
+];
 
 export default function SiteHome() {
-  const issueStyle = {
-    "--issue-accent": currentIssue.accent,
-    "--issue-accent-dark": currentIssue.accentDark,
-    "--issue-paper": currentIssue.paper,
-  } as CSSProperties;
-
   return (
-    <main className="cf42-home" style={issueStyle}>
-      <header className="cf42-header">
-        <a className="cf42-brand" href="/" aria-label="cosmosfilm42 宇宙观影团首页">
-          <strong>cosmosfilm42</strong>
-          <span>宇宙观影团</span>
+    <main className="intro42-home">
+      <header className="intro42-header">
+        <a className="intro42-logo" href="/" aria-label="宇宙放映42 首页">
+          <img src="/cosmos42/logo.png" width={1080} height={190} alt="宇宙放映" />
+          <span>42</span>
         </a>
-        <nav aria-label="主导航">
-          <a href="#current">本期</a>
-          <a href="#archive">往期</a>
-          <a href="#about">关于</a>
+        <nav aria-label="主页导航">
+          <a href="#what">我们做什么</a>
+          <a href="#cases">活动案例</a>
+          <a href="#yingji">映集</a>
         </nav>
-        <p className="cf42-header-note">SCREENING · EDITORIAL · EXPERIENCE</p>
+        <a className="intro42-now" href="/issues/obsession/">
+          正在放映 <span>01</span>
+        </a>
       </header>
 
-      <section className="cf42-hero" id="current" aria-labelledby="current-issue-title">
-        <div className="cf42-issue-number" aria-hidden="true">
-          {currentIssue.number}
-        </div>
-        <div className="cf42-hero-copy">
-          <p className="cf42-mono">
-            CURRENT ISSUE / VOL.{currentIssue.number} / {currentIssue.dateLabel}
-          </p>
-          <h1 id="current-issue-title">
-            {currentIssue.title}
-            <em>{currentIssue.chineseTitle}</em>
-          </h1>
-          <p className="cf42-statement">{currentIssue.statement}</p>
-          <p className="cf42-intro">{currentIssue.introduction}</p>
-          <div className="cf42-actions">
-            <a className="cf42-primary-action" href={issueUrl(currentIssue.slug)}>
-              阅读本期专题
-              <span>↗</span>
-            </a>
-            <a className="cf42-secondary-action" href={currentIssue.experienceHref}>
-              打开海报暗房
-            </a>
-          </div>
-        </div>
-        <a
-          className="cf42-hero-visual"
-          href={issueUrl(currentIssue.slug)}
-          aria-label={`阅读 ${currentIssue.title} 本期专题`}
-        >
-          <img
-            src={currentIssue.poster}
-            width={795}
-            height={1194}
-            alt={`${currentIssue.title} 原版电影海报`}
-          />
-          <span className="cf42-orbit" aria-hidden="true" />
-          <div className="cf42-visual-caption">
-            <span>NOW SHOWING</span>
-            <strong>VOL.{currentIssue.number}</strong>
-          </div>
-        </a>
-      </section>
-
-      <div className="cf42-marquee" aria-hidden="true">
-        <span>
-          SCREENING · EDITORIAL · EXPERIENCE · SCREENING · EDITORIAL · EXPERIENCE ·
-        </span>
-      </div>
-
-      <section className="cf42-edition" aria-labelledby="edition-heading">
-        <header className="cf42-section-heading">
-          <div>
-            <p className="cf42-mono">THIS ISSUE / 目录</p>
-            <h2 id="edition-heading">这一期，我们在做什么</h2>
-          </div>
-          <span>{currentIssue.dateLabel}</span>
-        </header>
-
-        <div className="cf42-entry-grid">
-          {currentIssue.entries.map((entry, index) => {
-            const content = (
-              <>
-                <div className="cf42-entry-top">
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <span>{entry.meta}</span>
-                </div>
-                <div>
-                  <p>{entry.eyebrow}</p>
-                  <h3>{entry.title}</h3>
-                  <span className="cf42-entry-description">{entry.description}</span>
-                </div>
-                <span className="cf42-entry-arrow">
-                  {entry.href ? "进入 ↗" : "即将开放"}
-                </span>
-              </>
-            );
-            return entry.href ? (
-              <a
-                className={`cf42-entry cf42-entry-${entry.kind}`}
-                href={entry.href}
-                key={entry.title}
-              >
-                {content}
-              </a>
-            ) : (
-              <article
-                className={`cf42-entry cf42-entry-${entry.kind} cf42-entry-disabled`}
-                key={entry.title}
-              >
-                {content}
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="cf42-archive" id="archive" aria-labelledby="archive-heading">
-        <header className="cf42-section-heading">
-          <div>
-            <p className="cf42-mono">ALL ISSUES / ARCHIVE</p>
-            <h2 id="archive-heading">每一期，都留下来</h2>
-          </div>
-        </header>
-
-        <div className="cf42-archive-list">
-          {editorialIssues.map((issue) => (
-            <a href={issueUrl(issue.slug)} className="cf42-archive-row" key={issue.slug}>
-              <span className="cf42-archive-number">{issue.number}</span>
-              <span className="cf42-archive-title">
-                <strong>{issue.title}</strong>
-                <em>{issue.chineseTitle}</em>
-              </span>
-              <span>{issue.dateLabel}</span>
-              <span className="cf42-archive-state">正在放映</span>
-              <span>↗</span>
-            </a>
-          ))}
-          <div className="cf42-archive-row cf42-archive-next">
-            <span className="cf42-archive-number">02</span>
-            <span className="cf42-archive-title">
-              <strong>NEXT ISSUE</strong>
-              <em>下一期</em>
-            </span>
-            <span>TO BE ANNOUNCED</span>
-            <span className="cf42-archive-state">准备中</span>
-            <span>—</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="cf42-about" id="about">
-        <p className="cf42-mono">ABOUT COSMOSFILM42</p>
-        <div>
-          <h2>
-            不只放电影。
+      <section className="intro42-hero" aria-labelledby="intro42-title">
+        <div className="intro42-hero-copy">
+          <p className="intro42-kicker">宇宙放映42 · 我们正在做的事</p>
+          <h1 id="intro42-title">
+            把值得的电影
             <br />
-            也制造电影之外的相遇。
-          </h2>
-          <div className="cf42-about-copy">
+            带到愿意相遇的人面前
+          </h1>
+          <div className="intro42-hero-foot">
             <p>
-              宇宙观影团是一个持续更新的电影入口：放映、写作、影像实验，以及每一期专属的互动企划。
+              我们做的，不是把人带进影院就结束，
+              <br />
+              而是让一次共同观看有来路、有现场，也有余韵。
+            </p>
+            <a href="#what">向下了解 <span>↓</span></a>
+          </div>
+        </div>
+        <figure className="intro42-hero-image">
+          <img
+            src="/cosmos42/barbie-opening.jpg"
+            width={1080}
+            height={1437}
+            alt="宇宙放映第一次活动的观众现场"
+          />
+          <figcaption>
+            <strong>140</strong>
+            <span>位观众来到第一次活动现场</span>
+          </figcaption>
+        </figure>
+      </section>
+
+      <section className="intro42-origin" id="what">
+        <p className="intro42-section-no">01 / WHY WE SCREEN</p>
+        <div className="intro42-origin-grid">
+          <h2>起点不是一家公司，<br />而是一次想一起看电影的冲动。</h2>
+          <div>
+            <blockquote>“宇宙观影团本来并不存在。”</blockquote>
+            <p>
+              2023 年，一群四处观影的朋友从《芭比》开始：边找影院、边做设计、边研究售票，也边学习如何把一场活动真正落地。
             </p>
             <p>
-              每当新电影到来，网站会换一种主题色和视觉元素；旧内容不会消失，而会继续留在档案中。
+              真正缺少的，从来不只是“有没有电影看”，而是让好内容稳定抵达、让组织过程可靠、让关系能够留下来的机制。
             </p>
-            <a href="#current">返回本期 ↑</a>
           </div>
         </div>
       </section>
 
-      <footer className="cf42-footer">
-        <a className="cf42-brand" href="/">
-          <strong>cosmosfilm42</strong>
-          <span>宇宙观影团</span>
+      <section className="intro42-flow" aria-labelledby="flow-title">
+        <header className="intro42-section-head">
+          <p className="intro42-section-no">02 / HOW IT HAPPENS</p>
+          <h2 id="flow-title">我们把一次放映，做成五个连续动作</h2>
+        </header>
+        <ol>
+          {screeningFlow.map(([number, title, copy]) => (
+            <li key={number}>
+              <span>{number}</span>
+              <i aria-hidden="true" />
+              <strong>{title}</strong>
+              <p>{copy}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="intro42-flow-note">
+          每一个动作都影响观众是否愿意来、能否安心参与，以及散场之后还愿不愿意回来。
+        </p>
+      </section>
+
+      <section className="intro42-proof">
+        <div className="intro42-proof-copy">
+          <p className="intro42-section-no">03 / PRACTICE, NOT A SLOGAN</p>
+          <h2>方法不是口号，<br />是被一场场活动练出来的。</h2>
+          <p>
+            从朋友间的一次尝试，到持续策划、跨界合作和导演映后，我们把每次活动留下的经验变成下一次的起点。
+          </p>
+        </div>
+        <div className="intro42-metrics" aria-label="宇宙放映阶段数据">
+          <article>
+            <strong>2023</strong>
+            <h3>第一次活动</h3>
+            <p>从《芭比》宇宙派对开始</p>
+          </article>
+          <article>
+            <strong className="blue">VOL.100</strong>
+            <h3>阶段性里程碑</h3>
+            <p>近期文章明确写下“第100期”</p>
+          </article>
+          <article>
+            <strong>35 / 76</strong>
+            <h3>交流成为常态</h3>
+            <p>76 篇合集里，35 篇明确输出映后、主创、导演或嘉宾交流</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="intro42-programmes" aria-labelledby="programmes-title">
+        <header className="intro42-section-head">
+          <p className="intro42-section-no">04 / THREE LINES</p>
+          <h2 id="programmes-title">我们不只放一种电影，也不只做一种现场</h2>
+        </header>
+        <div className="intro42-programme-grid">
+          {programmeLines.map((line, index) => (
+            <article key={line.title}>
+              <figure>
+                <img src={line.image} alt={line.alt} />
+                <span>0{index + 1}</span>
+              </figure>
+              <h3>{line.title}</h3>
+              <p>{line.copy}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="intro42-cases" id="cases" aria-labelledby="cases-title">
+        <header className="intro42-section-head">
+          <p className="intro42-section-no">05 / TWO CASES</p>
+          <h2 id="cases-title">让电影在今天重新发生</h2>
+        </header>
+        <div className="intro42-case-grid">
+          <article className="intro42-case intro42-case-dark">
+            <img src="/cosmos42/goddess-live.jpg" alt="《神女》默片现场配乐演出" />
+            <div>
+              <p>案例一 · 经典与现场</p>
+              <h3>《神女》× 默片即兴配乐</h3>
+              <p>
+                把百年前的影像带回影院，邀请音乐家以结构化即兴进行现场配乐；银幕、演奏者与观众共同组成一次不可复制的三角对话。
+              </p>
+              <ul>
+                <li>不把经典当作静态遗产</li>
+                <li>研究文本、映前导赏与音乐演出共同构成体验</li>
+                <li>连接影院、音乐人与青年文化空间</li>
+              </ul>
+            </div>
+          </article>
+          <article className="intro42-case intro42-case-light">
+            <div className="intro42-case-collage">
+              <img src="/cosmos42/broad-daylight.jpg" alt="《白日之下》电影海报" />
+              <img src="/cosmos42/social-work.jpg" alt="《白日之下》映后社工实践分享" />
+              <img src="/cosmos42/broad-daylight-notes.jpg" alt="《白日之下》映后记录物料" />
+            </div>
+            <div>
+              <p>案例二 · 电影与真实生活</p>
+              <h3>《白日之下》× 社工实践映后</h3>
+              <p>
+                电影揭示弱势群体处境，映后邀请一线社工从实践角度继续讨论；活动结余用于支持相关社工与公益工作。
+              </p>
+              <strong>映后不是“附加环节”，它把银幕中的问题带回城市，也让观众知道自己可以如何继续参与。</strong>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section className="intro42-network" aria-labelledby="network-title">
+        <div>
+          <p className="intro42-section-no">06 / MADE TOGETHER</p>
+          <h2 id="network-title">一场活动，<br />由很多人共同完成。</h2>
+          <p>宇宙的能力不只来自内部团队，更来自长期形成的协作网络。</p>
+        </div>
+        <dl>
+          {collaborators.map(([title, copy], index) => (
+            <div key={title}>
+              <dt className={index % 2 === 0 ? "pink" : "blue"}>{title}</dt>
+              <dd>{copy}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className="intro42-yingji" id="yingji" aria-labelledby="yingji-title">
+        <div className="intro42-yingji-copy">
+          <p className="intro42-section-no">07 / WHAT COMES NEXT</p>
+          <h2 id="yingji-title">把实践沉淀成「映集」</h2>
+          <p>
+            一套从真实放映现场长出来的轻量组织与记录工具：从发布、选座和核销，到映后卡、评分、反馈与可信记录。
+          </p>
+          <ul>
+            <li><span>01</span>影院感，不做泛活动平台</li>
+            <li><span>02</span>信息清楚，降低赴约成本</li>
+            <li><span>03</span>散场之后，记录才开始</li>
+          </ul>
+        </div>
+        <figure>
+          <img src="/cosmos42/yingji.png" alt="映集移动端产品界面设计" />
+        </figure>
+      </section>
+
+      <section className="intro42-current" aria-labelledby="current-title">
+        <div>
+          <p className="intro42-section-no">NOW SCREENING / ISSUE 01</p>
+          <h2 id="current-title">当前放映：Obsession</h2>
+          <p>本期包含电影专题与一间可以把自己放进电影里的海报暗房。</p>
+          <div>
+            <a href="/issues/obsession/">阅读本期专题 ↗</a>
+            <a href="/obsession/">打开海报暗房 ↗</a>
+          </div>
+        </div>
+        <img src="/original-poster.png" alt="Obsession 原版电影海报" />
+      </section>
+
+      <section className="intro42-close">
+        <p>我们想继续做下去</p>
+        <h2>一起看，各自记录；<br />让每一次相遇留下来。</h2>
+        <div>
+          <strong>期待与这些伙伴合作</strong>
+          <p>电影创作者与发行方 · 影院与放映空间 · 文化机构与城市社群 · 独立放映组织者</p>
+        </div>
+      </section>
+
+      <footer className="intro42-footer">
+        <a href="/" className="intro42-logo" aria-label="宇宙放映42 首页">
+          <img src="/cosmos42/logo.png" alt="宇宙放映" />
+          <span>42</span>
         </a>
-        <p>放映 · 写作 · 互动企划</p>
-        <p>© {currentIssue.year}</p>
+        <p>cosmosfilm42 · 宇宙观影团</p>
+        <p>© 2026</p>
       </footer>
     </main>
   );

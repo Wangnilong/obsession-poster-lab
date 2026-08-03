@@ -14,19 +14,21 @@ async function render(pathname = "/") {
   );
 }
 
-test("server-renders the themeable cosmosfilm42 editorial index", async () => {
+test("server-renders the cosmosfilm42 introduction index", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /cosmosfilm42/);
-  assert.match(html, /宇宙观影团/);
-  assert.match(html, /这一期，我们在做什么/);
+  assert.match(html, /宇宙放映42/);
+  assert.match(html, /把值得的电影/);
+  assert.match(html, /带到愿意相遇的人面前/);
+  assert.match(html, /我们把一次放映，做成五个连续动作/);
+  assert.match(html, /把实践沉淀成「映集」/);
   assert.match(html, /\/issues\/obsession\//);
   assert.match(html, /\/obsession\//);
-  assert.match(html, /微信购票入口即将开放/);
-  assert.match(html, /--issue-accent/);
+  assert.match(html, /\/cosmos42\/logo\.png/);
+  assert.match(html, /\/cosmos42\/yingji\.png/);
 });
 
 test("server-renders a standalone editorial page for each issue", async () => {
