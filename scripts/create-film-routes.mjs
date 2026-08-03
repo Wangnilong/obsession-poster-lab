@@ -3,7 +3,15 @@ import { resolve } from "node:path";
 
 const outDir = resolve(process.argv[2] ?? "github-dist");
 const source = resolve(outDir, "index.html");
-const filmRoutes = ["obsession", "issues/obsession", "kill-bill", "archive"];
+const filmRoutes = [
+  "obsession",
+  "issues/obsession",
+  "kill-bill",
+  "archive",
+  "archive/obsession",
+  "archive/kill-bill",
+  "archive/admin",
+];
 
 await Promise.all(
   filmRoutes.map(async (slug) => {

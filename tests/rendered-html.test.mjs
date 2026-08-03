@@ -51,20 +51,59 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /照片只在当前浏览器中处理/);
 });
 
-test("server-renders the reusable screening archive", async () => {
+test("server-renders a poster-only screening archive index", async () => {
   const response = await render("/archive");
   assert.equal(response.status, 200);
 
   const html = await response.text();
-  const source = await readFile(new URL("../app/archive-page.tsx", import.meta.url), "utf8");
   assert.match(html, /SCREENING ARCHIVE/);
-  assert.match(html, /OBSESSION/);
-  assert.match(html, /KILL BILL/);
-  assert.match(html, /\/obsession\//);
-  assert.match(html, /\/issues\/obsession\//);
+  assert.match(html, /archive-poster-grid/);
+  assert.match(html, /aria-label="01 期 迷恋 OBSESSION"/);
+  assert.match(html, /aria-label="02 期 杀死比尔 KILL BILL"/);
+  assert.match(html, /\/archive\/obsession\//);
+  assert.match(html, /\/archive\/kill-bill\//);
+  assert.match(html, /\/archive\/admin\//);
   assert.match(html, /death-list-reference\.jpg/);
-  assert.match(source, /\/kill-bill\/#death-list/);
-  assert.match(source, /\/kill-bill\/#id-card/);
+  assert.doesNotMatch(html, /archive-entry-grid/);
+});
+
+test("server-renders each film archive with separate content tabs", async () => {
+  const [obsessionResponse, killBillResponse] = await Promise.all([
+    render("/archive/obsession"),
+    render("/archive/kill-bill"),
+  ]);
+  assert.equal(obsessionResponse.status, 200);
+  assert.equal(killBillResponse.status, 200);
+
+  const [obsessionHtml, killBillHtml, source] = await Promise.all([
+    obsessionResponse.text(),
+    killBillResponse.text(),
+    readFile(new URL("../app/archive-film-page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(obsessionHtml, /ISSUE 01/);
+  assert.match(obsessionHtml, /花为什么挡住了脸/);
+  assert.match(obsessionHtml, /\?section=articles/);
+  assert.match(obsessionHtml, /\?section=photos/);
+  assert.match(obsessionHtml, /\?section=tools/);
+  assert.match(obsessionHtml, /\?section=merch/);
+  assert.doesNotMatch(obsessionHtml, /海报暗房成片/);
+  assert.match(killBillHtml, /KILL BILL/);
+  assert.match(source, /history\.pushState/);
+});
+
+test("server-renders the protected content desk interface", async () => {
+  const response = await render("/archive/admin");
+  assert.equal(response.status, 200);
+
+  const [html, source] = await Promise.all([
+    response.text(),
+    readFile(new URL("../app/archive-admin-page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(html, /内容后台/);
+  assert.match(html, /编辑登录/);
+  assert.match(html, /发布内容/);
+  assert.match(html, /CloudBase/);
+  assert.match(source, /\/api\/archive\/auth\/session/);
 });
 
 test("server-renders a standalone editorial page for each issue", async () => {

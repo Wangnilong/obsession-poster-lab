@@ -1,6 +1,8 @@
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import ArchivePage from "../app/archive-page";
+import ArchiveAdminPage from "../app/archive-admin-page";
+import ArchiveFilmPage from "../app/archive-film-page";
 import IssuePage from "../app/issue-page";
 import KillBillGenerator from "../app/kill-bill-generator";
 import SiteHome from "../app/site-home";
@@ -12,10 +14,16 @@ const isObsession = /(?:^|\/)obsession$/.test(currentPath);
 const isObsessionIssue = /(?:^|\/)issues\/obsession$/.test(currentPath);
 const isKillBill = /(?:^|\/)kill-bill$/.test(currentPath);
 const isArchive = /(?:^|\/)archive$/.test(currentPath);
+const isArchiveAdmin = /(?:^|\/)archive\/admin$/.test(currentPath);
+const archiveFilmMatch = currentPath.match(/(?:^|\/)archive\/(obsession|kill-bill)$/);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {isArchive ? (
+    {isArchiveAdmin ? (
+      <ArchiveAdminPage />
+    ) : archiveFilmMatch ? (
+      <ArchiveFilmPage slug={archiveFilmMatch[1]} />
+    ) : isArchive ? (
       <ArchivePage />
     ) : isKillBill ? (
       <KillBillGenerator />
