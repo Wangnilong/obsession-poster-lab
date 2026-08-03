@@ -1,4 +1,8 @@
+"use client";
+
 /* eslint-disable @next/next/no-img-element, @next/next/no-html-link-for-pages -- static EdgeOne/Vite routes use portable anchors */
+
+import { useEffect } from "react";
 
 const screeningFlow = [
   ["01", "选片", "找到值得被看见的作品"],
@@ -37,6 +41,33 @@ const collaborators = [
 ];
 
 export default function SiteHome() {
+  useEffect(() => {
+    const home = document.querySelector<HTMLElement>(".intro42-home");
+    const sections = document.querySelectorAll<HTMLElement>("[data-reveal]");
+
+    if (!home || !sections.length) return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      sections.forEach((section) => section.classList.add("is-visible"));
+      return;
+    }
+
+    home.classList.add("intro42-motion-ready");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      { rootMargin: "0px 0px -12%", threshold: 0.08 },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <main className="intro42-home">
       <header className="intro42-header">
@@ -54,13 +85,35 @@ export default function SiteHome() {
         </a>
       </header>
 
-      <section className="intro42-hero" aria-labelledby="intro42-title">
+      <section className="intro42-current intro42-current-top" aria-labelledby="current-title">
+        <span className="intro42-current-ghost" aria-hidden="true">01</span>
+        <div className="intro42-current-copy">
+          <p className="intro42-section-no">NOW SCREENING / ISSUE 01</p>
+          <h2 id="current-title">当前放映：<span>Obsession</span></h2>
+          <p>本期包含电影专题，以及一间可以把自己放进电影里的海报暗房。</p>
+          <div className="intro42-current-actions">
+            <a href="/issues/obsession/">阅读本期专题 <span>↗</span></a>
+            <a href="/obsession/">打开海报暗房 <span>↗</span></a>
+          </div>
+        </div>
+        <figure className="intro42-current-poster">
+          <img src="/original-poster.png" alt="Obsession 原版电影海报" />
+          <figcaption><span>ISSUE 01</span><span>ACTIVE</span></figcaption>
+        </figure>
+        <div className="intro42-current-ticker" aria-hidden="true">
+          <span>NOW SCREENING · OBSESSION · COSMOS FILMS 42 · NOW SCREENING · OBSESSION · COSMOS FILMS 42 ·&nbsp;</span>
+          <span>NOW SCREENING · OBSESSION · COSMOS FILMS 42 · NOW SCREENING · OBSESSION · COSMOS FILMS 42 ·&nbsp;</span>
+        </div>
+      </section>
+
+      <section className="intro42-hero" aria-labelledby="intro42-title" data-reveal>
+        <img className="intro42-hero-mark" src="/cosmos42/logo.png" alt="" aria-hidden="true" />
+        <span className="intro42-hero-orbit" aria-hidden="true" />
         <div className="intro42-hero-copy">
           <p className="intro42-kicker">宇宙放映42 · 我们正在做的事</p>
           <h1 id="intro42-title">
-            把值得的电影
-            <br />
-            带到愿意相遇的人面前
+            <span>把值得的电影</span>
+            <span className="intro42-outline-title">带到愿意相遇的人面前</span>
           </h1>
           <div className="intro42-hero-foot">
             <p>
@@ -85,7 +138,7 @@ export default function SiteHome() {
         </figure>
       </section>
 
-      <section className="intro42-origin" id="what">
+      <section className="intro42-origin" id="what" data-reveal>
         <p className="intro42-section-no">01 / WHY WE SCREEN</p>
         <div className="intro42-origin-grid">
           <h2>起点不是一家公司，<br />而是一次想一起看电影的冲动。</h2>
@@ -101,7 +154,7 @@ export default function SiteHome() {
         </div>
       </section>
 
-      <section className="intro42-flow" aria-labelledby="flow-title">
+      <section className="intro42-flow" aria-labelledby="flow-title" data-reveal>
         <header className="intro42-section-head">
           <p className="intro42-section-no">02 / HOW IT HAPPENS</p>
           <h2 id="flow-title">我们把一次放映，做成五个连续动作</h2>
@@ -121,7 +174,7 @@ export default function SiteHome() {
         </p>
       </section>
 
-      <section className="intro42-proof">
+      <section className="intro42-proof" data-reveal>
         <div className="intro42-proof-copy">
           <p className="intro42-section-no">03 / PRACTICE, NOT A SLOGAN</p>
           <h2>方法不是口号，<br />是被一场场活动练出来的。</h2>
@@ -148,7 +201,7 @@ export default function SiteHome() {
         </div>
       </section>
 
-      <section className="intro42-programmes" aria-labelledby="programmes-title">
+      <section className="intro42-programmes" aria-labelledby="programmes-title" data-reveal>
         <header className="intro42-section-head">
           <p className="intro42-section-no">04 / THREE LINES</p>
           <h2 id="programmes-title">我们不只放一种电影，也不只做一种现场</h2>
@@ -157,7 +210,7 @@ export default function SiteHome() {
           {programmeLines.map((line, index) => (
             <article key={line.title}>
               <figure>
-                <img src={line.image} alt={line.alt} />
+                <img className={`intro42-programme-image-${index + 1}`} src={line.image} alt={line.alt} />
                 <span>0{index + 1}</span>
               </figure>
               <h3>{line.title}</h3>
@@ -167,7 +220,7 @@ export default function SiteHome() {
         </div>
       </section>
 
-      <section className="intro42-cases" id="cases" aria-labelledby="cases-title">
+      <section className="intro42-cases" id="cases" aria-labelledby="cases-title" data-reveal>
         <header className="intro42-section-head">
           <p className="intro42-section-no">05 / TWO CASES</p>
           <h2 id="cases-title">让电影在今天重新发生</h2>
@@ -190,9 +243,9 @@ export default function SiteHome() {
           </article>
           <article className="intro42-case intro42-case-light">
             <div className="intro42-case-collage">
-              <img src="/cosmos42/broad-daylight.jpg" alt="《白日之下》电影海报" />
-              <img src="/cosmos42/social-work.jpg" alt="《白日之下》映后社工实践分享" />
-              <img src="/cosmos42/broad-daylight-notes.jpg" alt="《白日之下》映后记录物料" />
+              <img className="intro42-collage-poster" src="/cosmos42/broad-daylight.jpg" alt="《白日之下》电影海报" />
+              <img className="intro42-collage-person" src="/cosmos42/social-work.jpg" alt="《白日之下》映后社工实践分享" />
+              <img className="intro42-collage-notes" src="/cosmos42/broad-daylight-notes.jpg" alt="《白日之下》映后记录物料" />
             </div>
             <div>
               <p>案例二 · 电影与真实生活</p>
@@ -206,7 +259,7 @@ export default function SiteHome() {
         </div>
       </section>
 
-      <section className="intro42-network" aria-labelledby="network-title">
+      <section className="intro42-network" aria-labelledby="network-title" data-reveal>
         <div>
           <p className="intro42-section-no">06 / MADE TOGETHER</p>
           <h2 id="network-title">一场活动，<br />由很多人共同完成。</h2>
@@ -222,7 +275,7 @@ export default function SiteHome() {
         </dl>
       </section>
 
-      <section className="intro42-yingji" id="yingji" aria-labelledby="yingji-title">
+      <section className="intro42-yingji" id="yingji" aria-labelledby="yingji-title" data-reveal>
         <div className="intro42-yingji-copy">
           <p className="intro42-section-no">07 / WHAT COMES NEXT</p>
           <h2 id="yingji-title">把实践沉淀成「映集」</h2>
@@ -240,20 +293,7 @@ export default function SiteHome() {
         </figure>
       </section>
 
-      <section className="intro42-current" aria-labelledby="current-title">
-        <div>
-          <p className="intro42-section-no">NOW SCREENING / ISSUE 01</p>
-          <h2 id="current-title">当前放映：Obsession</h2>
-          <p>本期包含电影专题与一间可以把自己放进电影里的海报暗房。</p>
-          <div>
-            <a href="/issues/obsession/">阅读本期专题 ↗</a>
-            <a href="/obsession/">打开海报暗房 ↗</a>
-          </div>
-        </div>
-        <img src="/original-poster.png" alt="Obsession 原版电影海报" />
-      </section>
-
-      <section className="intro42-close">
+      <section className="intro42-close" data-reveal>
         <p>我们想继续做下去</p>
         <h2>一起看，各自记录；<br />让每一次相遇留下来。</h2>
         <div>

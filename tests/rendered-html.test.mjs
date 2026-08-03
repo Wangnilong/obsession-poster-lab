@@ -25,6 +25,9 @@ test("server-renders the cosmosfilm42 introduction index", async () => {
   assert.match(html, /带到愿意相遇的人面前/);
   assert.match(html, /我们把一次放映，做成五个连续动作/);
   assert.match(html, /把实践沉淀成「映集」/);
+  assert.match(html, /intro42-current intro42-current-top/);
+  assert.match(html, /intro42-hero-mark/);
+  assert.match(html, /intro42-collage-person/);
   assert.match(html, /\/issues\/obsession\//);
   assert.match(html, /\/obsession\//);
   assert.match(html, /\/cosmos42\/logo\.png/);
