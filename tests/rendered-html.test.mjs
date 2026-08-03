@@ -23,15 +23,32 @@ test("server-renders the cosmosfilm42 introduction index", async () => {
   assert.match(html, /宇宙放映42/);
   assert.match(html, /把值得的电影/);
   assert.match(html, /带到愿意相遇的人面前/);
+  assert.match(html, /起点是一次/);
+  assert.match(html, /想一起看电影的冲动/);
   assert.match(html, /我们把一次放映，做成五个连续动作/);
-  assert.match(html, /把实践沉淀成「映集」/);
+  assert.doesNotMatch(html, /把实践沉淀成「映集」/);
   assert.match(html, /intro42-current intro42-current-top/);
   assert.match(html, /intro42-hero-mark/);
   assert.match(html, /intro42-collage-person/);
-  assert.match(html, /\/issues\/obsession\//);
-  assert.match(html, /\/obsession\//);
+  assert.match(html, /下一场：/);
+  assert.match(html, /Kill Bill/);
+  assert.match(html, /\/kill-bill\//);
   assert.match(html, /\/cosmos42\/logo\.png/);
-  assert.match(html, /\/cosmos42\/yingji\.png/);
+});
+
+test("server-renders the Kill Bill artefact generators", async () => {
+  const response = await render("/kill-bill");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /DEATH LIST FIVE/);
+  assert.match(html, /暗杀名单/);
+  assert.match(html, /KILLER LICENSE/);
+  assert.match(html, /身份卡/);
+  assert.match(html, /上传照片/);
+  assert.match(html, /下载暗杀名单 PNG/);
+  assert.match(html, /下载身份卡 PNG/);
+  assert.match(html, /照片只在当前浏览器中处理/);
 });
 
 test("server-renders a standalone editorial page for each issue", async () => {

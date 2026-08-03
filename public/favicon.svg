@@ -1,6 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="14" fill="#070707"/>
-  <circle cx="32" cy="32" r="23" fill="none" stroke="#d23b8d" stroke-width="4" stroke-dasharray="104 41" transform="rotate(-28 32 32)"/>
-  <circle cx="49" cy="16" r="4" fill="#2f64c9"/>
-  <text x="32" y="41" fill="#f8f4ef" font-family="Arial Black, Arial, sans-serif" font-size="25" font-weight="900" letter-spacing="-2" text-anchor="middle">42</text>
+  <circle cx="32" cy="32" r="21" fill="none" stroke="#e4c617" stroke-width="4" stroke-dasharray="86 46" transform="rotate(-32 32 32)"/>
+  <ellipse cx="32" cy="32" rx="27" ry="10" fill="none" stroke="#bd1d17" stroke-width="3" transform="rotate(-24 32 32)"/>
+  <circle cx="45" cy="22" r="5" fill="#e4c617"/>
+  <circle cx="26" cy="34" r="7" fill="#f4efd8"/>
+  <circle cx="28" cy="31" r="2" fill="#070707" opacity=".38"/>
 </svg>

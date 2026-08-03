@@ -73,36 +73,35 @@ export default function SiteHome() {
       <header className="intro42-header">
         <a className="intro42-logo" href="/" aria-label="宇宙放映42 首页">
           <img src="/cosmos42/logo.png" width={1080} height={190} alt="宇宙放映" />
-          <span>42</span>
         </a>
         <nav aria-label="主页导航">
           <a href="#what">我们做什么</a>
           <a href="#cases">活动案例</a>
-          <a href="#yingji">映集</a>
+          <a href="/kill-bill/">下一场活动</a>
         </nav>
-        <a className="intro42-now" href="/issues/obsession/">
-          正在放映 <span>01</span>
+        <a className="intro42-now" href="/kill-bill/">
+          下一场 <span>02</span>
         </a>
       </header>
 
       <section className="intro42-current intro42-current-top" aria-labelledby="current-title">
-        <span className="intro42-current-ghost" aria-hidden="true">01</span>
+        <span className="intro42-current-ghost" aria-hidden="true">02</span>
         <div className="intro42-current-copy">
-          <p className="intro42-section-no">NOW SCREENING / ISSUE 01</p>
-          <h2 id="current-title">当前放映：<span>Obsession</span></h2>
-          <p>本期包含电影专题，以及一间可以把自己放进电影里的海报暗房。</p>
+          <p className="intro42-section-no">NEXT SCREENING / ISSUE 02</p>
+          <h2 id="current-title">下一场：<span>Kill Bill</span></h2>
+          <p>把名字写进暗杀名单，或者制作一张属于自己的 Killer License。</p>
           <div className="intro42-current-actions">
-            <a href="/issues/obsession/">阅读本期专题 <span>↗</span></a>
-            <a href="/obsession/">打开海报暗房 <span>↗</span></a>
+            <a href="/kill-bill/#death-list">制作暗杀名单 <span>↗</span></a>
+            <a href="/kill-bill/#id-card">制作身份卡 <span>↗</span></a>
           </div>
         </div>
         <figure className="intro42-current-poster">
-          <img src="/original-poster.png" alt="Obsession 原版电影海报" />
-          <figcaption><span>ISSUE 01</span><span>ACTIVE</span></figcaption>
+          <img src="/kill-bill/death-list-still.jpg" alt="《杀死比尔》暗杀名单画面" />
+          <figcaption><span>ISSUE 02</span><span>COMING NEXT</span></figcaption>
         </figure>
         <div className="intro42-current-ticker" aria-hidden="true">
-          <span>NOW SCREENING · OBSESSION · COSMOS FILMS 42 · NOW SCREENING · OBSESSION · COSMOS FILMS 42 ·&nbsp;</span>
-          <span>NOW SCREENING · OBSESSION · COSMOS FILMS 42 · NOW SCREENING · OBSESSION · COSMOS FILMS 42 ·&nbsp;</span>
+          <span>NEXT SCREENING · KILL BILL · DEATH LIST FIVE · KILLER LICENSE · COSMOS FILMS ·&nbsp;</span>
+          <span>NEXT SCREENING · KILL BILL · DEATH LIST FIVE · KILLER LICENSE · COSMOS FILMS ·&nbsp;</span>
         </div>
       </section>
 
@@ -141,7 +140,7 @@ export default function SiteHome() {
       <section className="intro42-origin" id="what" data-reveal>
         <p className="intro42-section-no">01 / WHY WE SCREEN</p>
         <div className="intro42-origin-grid">
-          <h2>起点不是一家公司，<br />而是一次想一起看电影的冲动。</h2>
+          <h2>起点是一次<br />想一起看电影的冲动。</h2>
           <div>
             <blockquote>“宇宙观影团本来并不存在。”</blockquote>
             <p>
@@ -275,24 +274,6 @@ export default function SiteHome() {
         </dl>
       </section>
 
-      <section className="intro42-yingji" id="yingji" aria-labelledby="yingji-title" data-reveal>
-        <div className="intro42-yingji-copy">
-          <p className="intro42-section-no">07 / WHAT COMES NEXT</p>
-          <h2 id="yingji-title">把实践沉淀成「映集」</h2>
-          <p>
-            一套从真实放映现场长出来的轻量组织与记录工具：从发布、选座和核销，到映后卡、评分、反馈与可信记录。
-          </p>
-          <ul>
-            <li><span>01</span>影院感，不做泛活动平台</li>
-            <li><span>02</span>信息清楚，降低赴约成本</li>
-            <li><span>03</span>散场之后，记录才开始</li>
-          </ul>
-        </div>
-        <figure>
-          <img src="/cosmos42/yingji.png" alt="映集移动端产品界面设计" />
-        </figure>
-      </section>
-
       <section className="intro42-close" data-reveal>
         <p>我们想继续做下去</p>
         <h2>一起看，各自记录；<br />让每一次相遇留下来。</h2>
@@ -305,7 +286,6 @@ export default function SiteHome() {
       <footer className="intro42-footer">
         <a href="/" className="intro42-logo" aria-label="宇宙放映42 首页">
           <img src="/cosmos42/logo.png" alt="宇宙放映" />
-          <span>42</span>
         </a>
         <p>cosmosfilm42 · 宇宙观影团</p>
         <p>© 2026</p>
