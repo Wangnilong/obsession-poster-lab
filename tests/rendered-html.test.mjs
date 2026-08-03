@@ -51,6 +51,22 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /照片只在当前浏览器中处理/);
 });
 
+test("server-renders the reusable screening archive", async () => {
+  const response = await render("/archive");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  const source = await readFile(new URL("../app/archive-page.tsx", import.meta.url), "utf8");
+  assert.match(html, /SCREENING ARCHIVE/);
+  assert.match(html, /OBSESSION/);
+  assert.match(html, /KILL BILL/);
+  assert.match(html, /\/obsession\//);
+  assert.match(html, /\/issues\/obsession\//);
+  assert.match(html, /death-list-reference\.jpg/);
+  assert.match(source, /\/kill-bill\/#death-list/);
+  assert.match(source, /\/kill-bill\/#id-card/);
+});
+
 test("server-renders a standalone editorial page for each issue", async () => {
   const response = await render("/issues/obsession");
   assert.equal(response.status, 200);

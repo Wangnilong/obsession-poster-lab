@@ -76,7 +76,7 @@ export default function SiteHome() {
         </a>
         <nav aria-label="主页导航">
           <a href="#what">我们做什么</a>
-          <a href="#cases">活动案例</a>
+          <a href="/archive/">往期活动</a>
           <a href="/kill-bill/">下一场活动</a>
         </nav>
         <a className="intro42-now" href="/kill-bill/">
@@ -272,6 +272,18 @@ export default function SiteHome() {
             </div>
           ))}
         </dl>
+      </section>
+
+      <section className="intro42-archive-entry" data-reveal>
+        <div>
+          <p className="intro42-section-no">07 / SCREENING ARCHIVE</p>
+          <h2>散场之后，<br />电影还留在这里。</h2>
+        </div>
+        <div>
+          <p>选择一部电影，继续打开这一期的工具、映后图片、周边和文章。</p>
+          <a href="/archive/">进入往期活动 <span>↗</span></a>
+        </div>
+        <strong aria-hidden="true">ARCHIVE</strong>
       </section>
 
       <section className="intro42-close" data-reveal>

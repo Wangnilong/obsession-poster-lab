@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./archive.css";
 
 @font-face {
   font-family: "Anton";

@@ -1,5 +1,6 @@
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
+import ArchivePage from "../app/archive-page";
 import IssuePage from "../app/issue-page";
 import KillBillGenerator from "../app/kill-bill-generator";
 import SiteHome from "../app/site-home";
@@ -10,10 +11,13 @@ const currentPath = window.location.pathname.replace(/\/+$/, "");
 const isObsession = /(?:^|\/)obsession$/.test(currentPath);
 const isObsessionIssue = /(?:^|\/)issues\/obsession$/.test(currentPath);
 const isKillBill = /(?:^|\/)kill-bill$/.test(currentPath);
+const isArchive = /(?:^|\/)archive$/.test(currentPath);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {isKillBill ? (
+    {isArchive ? (
+      <ArchivePage />
+    ) : isKillBill ? (
       <KillBillGenerator />
     ) : isObsessionIssue ? (
       <IssuePage />
