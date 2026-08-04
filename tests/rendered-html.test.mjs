@@ -101,9 +101,13 @@ test("server-renders the protected content desk interface", async () => {
   ]);
   assert.match(html, /内容后台/);
   assert.match(html, /编辑登录/);
-  assert.match(html, /发布内容/);
+  assert.match(html, /排版工作台/);
+  assert.match(html, /把图片拖到这里/);
+  assert.match(html, /LIVE PREVIEW/);
   assert.match(source, /CloudBase/);
   assert.match(source, /signInArchiveUser/);
+  assert.match(source, /moveBlockTo/);
+  assert.match(source, /dataTransfer\.files/);
 });
 
 test("keeps archive roles and CloudBase publishing out of static passwords", async () => {
@@ -120,8 +124,10 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(archiveClient, /signInWithUsernameAndPassword/);
   assert.match(archiveClient, /collection\("archive_content"\)/);
   assert.match(archiveClient, /uploadFile/);
+  assert.match(archiveClient, /layout: layout\.length/);
   assert.match(adminPage, /仅上传图片/);
   assert.match(filmPage, /loadArchiveContent/);
+  assert.match(filmPage, /ArchiveLayout/);
   assert.doesNotMatch(`${adminPage}${archiveClient}${config}`, /123456/);
 });
 

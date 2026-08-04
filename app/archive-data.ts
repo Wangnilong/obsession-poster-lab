@@ -1,5 +1,25 @@
 export type ArchiveSection = "articles" | "photos" | "tools" | "merch";
 
+export type ArchiveLayoutBlock =
+  | {
+      type: "heading" | "paragraph" | "quote";
+      text: string;
+      align?: "left" | "center" | "right";
+    }
+  | {
+      type: "image";
+      image?: string;
+      fileID?: string;
+      alt?: string;
+      caption?: string;
+      size?: "full" | "wide" | "half";
+    }
+  | {
+      type: "link";
+      text: string;
+      href: string;
+    };
+
 export type ArchiveEntry = {
   title: string;
   meta: string;
@@ -8,6 +28,7 @@ export type ArchiveEntry = {
   image?: string;
   imageAlt?: string;
   action?: string;
+  layout?: ArchiveLayoutBlock[];
 };
 
 export type ArchiveFilm = {

@@ -1,4 +1,4 @@
-import type { ArchiveEntry, ArchiveSection } from "./archive-data";
+import type { ArchiveEntry, ArchiveLayoutBlock, ArchiveSection } from "./archive-data";
 
 type CloudBaseSdk = (typeof import("@cloudbase/js-sdk"))["default"];
 type CloudBaseApp = ReturnType<CloudBaseSdk["init"]>;
@@ -23,10 +23,34 @@ type PublishedArchiveRecord = {
   action?: string;
   fileID?: string;
   imageAlt?: string;
+  layout?: ArchiveLayoutBlock[];
   createdAt: number;
   createdBy: string;
   status: "published";
 };
+
+export type ArchivePublishBlock =
+  | {
+      id: string;
+      type: "heading" | "paragraph" | "quote";
+      text: string;
+      align?: "left" | "center" | "right";
+    }
+  | {
+      id: string;
+      type: "image";
+      file?: File;
+      preview?: string;
+      alt?: string;
+      caption?: string;
+      size?: "full" | "wide" | "half";
+    }
+  | {
+      id: string;
+      type: "link";
+      text: string;
+      href: string;
+    };
 
 const archiveRoles: Record<string, ArchiveRole> = {
   huaishan: "admin",
@@ -105,11 +129,13 @@ export async function publishArchiveContent(input: {
   copy?: string;
   href?: string;
   file?: File | null;
+  blocks?: ArchivePublishBlock[];
 }) {
   if (input.role === "photo-uploader" && input.section !== "photos") {
     throw new Error("这个账号只能上传映后图片");
   }
-  if (input.section === "photos" && !input.file) {
+  const imageBlocks = input.blocks?.filter((block) => block.type === "image" && block.file) ?? [];
+  if (input.section === "photos" && !input.file && !imageBlocks.length) {
     throw new Error("映后图片分页必须选择一张图片");
   }
 
@@ -123,6 +149,36 @@ export async function publishArchiveContent(input: {
     fileID = result.fileID;
   }
 
+  const layout: ArchiveLayoutBlock[] = [];
+  for (const block of input.blocks ?? []) {
+    if (block.type === "image") {
+      if (!block.file) continue;
+      const result = await app.uploadFile({
+        cloudPath: `archive/${input.film}/${input.section}/${safeFileName(block.file.name)}`,
+        filePath: block.file as unknown as string,
+      });
+      layout.push({
+        type: "image",
+        fileID: result.fileID,
+        alt: block.alt?.trim() || input.title.trim(),
+        caption: block.caption?.trim() || undefined,
+        size: block.size ?? "full",
+      });
+      continue;
+    }
+
+    if (block.type === "link") {
+      if (block.text.trim() && block.href.trim()) {
+        layout.push({ type: "link", text: block.text.trim(), href: block.href.trim() });
+      }
+      continue;
+    }
+
+    if (block.text.trim()) {
+      layout.push({ type: block.type, text: block.text.trim(), align: block.align ?? "left" });
+    }
+  }
+
   const record: PublishedArchiveRecord = {
     film: input.film,
     section: input.section,
@@ -133,6 +189,7 @@ export async function publishArchiveContent(input: {
     action: input.href?.trim() ? "打开内容" : undefined,
     fileID,
     imageAlt: input.title.trim(),
+    layout: layout.length ? layout : undefined,
     createdAt: Date.now(),
     createdBy: input.username,
     status: "published",

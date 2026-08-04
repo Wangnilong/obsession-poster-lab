@@ -40,7 +40,10 @@ exports.main = async (event = {}) => {
       .orderBy("createdAt", "desc")
       .get();
     const records = result.data || [];
-    const fileIDs = records.map((record) => record.fileID).filter(Boolean);
+    const fileIDs = [...new Set(records.flatMap((record) => [
+      record.fileID,
+      ...(record.layout || []).map((block) => block.fileID),
+    ]).filter(Boolean))];
     const temporaryUrls = new Map();
 
     if (fileIDs.length) {
@@ -62,6 +65,9 @@ exports.main = async (event = {}) => {
           action: record.action,
           image: record.fileID ? temporaryUrls.get(record.fileID) : undefined,
           imageAlt: record.imageAlt,
+          layout: (record.layout || []).map((block) => block.type === "image"
+            ? { ...block, image: block.fileID ? temporaryUrls.get(block.fileID) : undefined, fileID: undefined }
+            : block),
         })),
       }),
     };
