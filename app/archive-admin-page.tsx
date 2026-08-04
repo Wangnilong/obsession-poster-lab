@@ -248,116 +248,117 @@ export default function ArchiveAdminPage() {
   };
 
   const canComposeText = editor?.role !== "photo-uploader";
+  const activeSection: ArchiveSection = editor?.role === "photo-uploader" ? "photos" : section;
+  const activeFilm = archiveFilms.find((item) => item.slug === film) ?? archiveFilms[0];
 
-  return (
-    <main className="archive-page archive-admin-page">
-      <header className="archive-header">
-        <a href="/archive/" className="archive-back-link">← 返回往期活动</a>
-        <div className="archive-header-title"><span>CONTENT DESK</span><strong>内容后台</strong></div>
-        <a href="/" className="archive-login-link">宇宙放映 ↗</a>
-      </header>
-
-      <section className="archive-admin-shell">
-        <div className="archive-admin-intro">
-          <span>FOR COSMOS FILMS EDITORS</span>
-          <h1>不是上传表单，<br />是排版工作台。</h1>
-          <p>把文字和图片像剪辑一样排起来。文章、工具和周边各自成页，图片直接拖进画布，发布后保持这里看到的顺序。</p>
-        </div>
-
-        {!editor ? (
-          <form className="archive-login-form" onSubmit={handleLogin}>
-            <div className="archive-form-heading"><span>01 / SIGN IN</span><h2>编辑登录</h2></div>
+  if (!editor) {
+    return (
+      <main className="archive-page archive-admin-page archive-login-page">
+        <header className="archive-header">
+          <a href="/archive/" className="archive-back-link">← 返回往期活动</a>
+          <div className="archive-header-title"><span>CONTENT DESK</span><strong>内容后台</strong></div>
+          <a href="/" className="archive-login-link">宇宙放映 ↗</a>
+        </header>
+        <section className="archive-login-screen">
+          <div className="archive-login-copy">
+            <span>COSMOS FILMS / EDITOR</span>
+            <h1>登录以后，<br />再开始排版。</h1>
+            <p>文章、映后图片、工具和周边各自成页。公开网站只负责阅读，编辑工作留在这里。</p>
+          </div>
+          <form className="archive-login-form archive-login-panel" onSubmit={handleLogin}>
+            <div className="archive-form-heading"><span>SECURE SIGN IN</span><h2>编辑登录</h2></div>
             {needsSecureHost && hostedAdminUrl ? <a className="archive-admin-safe-link" href={hostedAdminUrl}>进入腾讯云安全后台 ↗</a> : null}
             <label><span>账号</span><input name="username" autoComplete="username" required placeholder="编辑账号" /></label>
             <label><span>密码</span><input name="password" type="password" autoComplete="current-password" required placeholder="••••••••" /></label>
-            <button type="submit" disabled={!configured || loginState === "loading"}>{loginState === "loading" ? "验证中…" : "登录内容后台"}</button>
+            <button type="submit" disabled={!configured || loginState === "loading"}>{loginState === "loading" ? "验证中…" : "进入内容工作台"}</button>
             <p className={loginState === "error" ? "is-error" : ""}>{message}</p>
           </form>
-        ) : (
-          <section className="archive-login-form archive-session-card">
-            <div className="archive-form-heading"><span>01 / SIGNED IN</span><h2>{editor.username}</h2></div>
-            <strong className="archive-role-badge">{editor.role === "admin" ? "最高权限" : "仅上传图片"}</strong>
-            <p>{message}</p>
-            <button type="button" onClick={handleSignOut}>退出登录</button>
-          </section>
-        )}
-
-        <section className="archive-layout-studio" aria-labelledby="layout-studio-title">
-          <div className="archive-form-heading archive-studio-heading">
-            <div><span>02 / COMPOSE</span><h2 id="layout-studio-title">排版工作台</h2></div>
-            <p>{sectionHints[editor?.role === "photo-uploader" ? "photos" : section]}</p>
-          </div>
-
-          <form onSubmit={handlePublish}>
-            <fieldset disabled={!editor || publishing}>
-              <div className="archive-studio-settings">
-                <label><span>对应电影</span><select value={film} onChange={(event) => setFilm(event.currentTarget.value as typeof film)}>{archiveFilms.map((item) => <option key={item.slug} value={item.slug}>ISSUE {item.issue} · {item.title}</option>)}</select></label>
-                <label><span>内容分页</span><select value={editor?.role === "photo-uploader" ? "photos" : section} disabled={editor?.role === "photo-uploader"} onChange={(event) => setSection(event.currentTarget.value as ArchiveSection)}>{(Object.keys(archiveSectionLabels) as ArchiveSection[]).map((key) => <option key={key} value={key}>{archiveSectionLabels[key].zh}</option>)}</select></label>
-                <label className="archive-title-field"><span>内容标题</span><input value={title} onChange={(event) => setTitle(event.currentTarget.value)} placeholder={section === "merch" ? "例如：Death List Five 印刷物" : "输入这篇内容的标题"} /></label>
-              </div>
-
-              <div className="archive-block-toolbar" aria-label="添加内容块">
-                {canComposeText ? <>
-                  <button type="button" onClick={() => addTextBlock("heading")}>＋ 小标题</button>
-                  <button type="button" onClick={() => addTextBlock("paragraph")}>＋ 正文</button>
-                  <button type="button" onClick={() => addTextBlock("quote")}>＋ 引语</button>
-                  <button type="button" onClick={addLinkBlock}>＋ 按钮</button>
-                </> : null}
-                <label className="archive-image-picker"><span>＋ 图片</span><input type="file" accept="image/*" multiple onChange={handleImageInput} /></label>
-              </div>
-
-              <div className="archive-studio-columns">
-                <div className={`archive-block-canvas${isDroppingFiles ? " is-dropping" : ""}`} onDragOver={(event) => { event.preventDefault(); if (event.dataTransfer.types.includes("Files")) setIsDroppingFiles(true); }} onDragLeave={() => setIsDroppingFiles(false)} onDrop={handleWorkspaceDrop}>
-                  {!blocks.length ? (
-                    <div className="archive-empty-canvas"><strong>把图片拖到这里</strong><span>或用上面的按钮加入文字、引语和链接</span></div>
-                  ) : blocks.map((block, index) => (
-                    <article className="archive-editor-block" draggable key={block.id} onDragStart={() => setDraggedBlockId(block.id)} onDragEnd={() => setDraggedBlockId(null)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handleBlockDrop(event, block.id)}>
-                      <header>
-                        <span className="archive-drag-handle">⠿ {String(index + 1).padStart(2, "0")} · {block.type.toUpperCase()}</span>
-                        <div>
-                          <button type="button" aria-label="上移" disabled={index === 0} onClick={() => moveBlock(block.id, -1)}>↑</button>
-                          <button type="button" aria-label="下移" disabled={index === blocks.length - 1} onClick={() => moveBlock(block.id, 1)}>↓</button>
-                          <button type="button" aria-label="删除" onClick={() => removeBlock(block.id)}>×</button>
-                        </div>
-                      </header>
-
-                      {block.type === "image" ? (
-                        <div className="archive-image-block-editor">
-                          {block.preview ? <img src={block.preview} alt="上传预览" /> : null}
-                          <div>
-                            <label><span>图片宽度</span><select value={block.size ?? "full"} onChange={(event) => updateBlock(block.id, { size: event.currentTarget.value as "full" | "wide" | "half" })}><option value="full">通栏</option><option value="wide">宽版</option><option value="half">半版</option></select></label>
-                            <label><span>图片说明</span><input value={block.caption ?? ""} onChange={(event) => updateBlock(block.id, { caption: event.currentTarget.value })} placeholder="显示在图片下面" /></label>
-                            <label><span>替代文字</span><input value={block.alt ?? ""} onChange={(event) => updateBlock(block.id, { alt: event.currentTarget.value })} placeholder="简单描述画面" /></label>
-                          </div>
-                        </div>
-                      ) : block.type === "link" ? (
-                        <div className="archive-link-block-editor">
-                          <input value={block.text} onChange={(event) => updateBlock(block.id, { text: event.currentTarget.value })} placeholder="按钮文字，例如：打开海报工具" />
-                          <input type="url" value={block.href} onChange={(event) => updateBlock(block.id, { href: event.currentTarget.value })} placeholder="https://…" />
-                        </div>
-                      ) : (
-                        <div className="archive-text-block-editor">
-                          <textarea rows={block.type === "paragraph" ? 7 : 3} value={block.text} onChange={(event) => updateBlock(block.id, { text: event.currentTarget.value })} placeholder={block.type === "heading" ? "输入小标题" : block.type === "quote" ? "输入引语" : "输入正文；换行会被保留"} />
-                          <label><span>对齐</span><select value={block.align ?? "left"} onChange={(event) => updateBlock(block.id, { align: event.currentTarget.value as "left" | "center" | "right" })}><option value="left">左对齐</option><option value="center">居中</option><option value="right">右对齐</option></select></label>
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
-
-                <aside className="archive-live-layout-preview">
-                  <span>LIVE PREVIEW</span>
-                  <h3>{title || "内容标题会出现在这里"}</h3>
-                  {previewBlocks.length ? <ArchiveLayout blocks={previewBlocks} /> : <p>加入内容块以后，这里会实时显示发布效果。</p>}
-                </aside>
-              </div>
-
-              <button className="archive-publish-layout" type="submit">{publishing ? "正在上传并发布…" : `发布到「${archiveSectionLabels[editor?.role === "photo-uploader" ? "photos" : section].zh}」`}</button>
-            </fieldset>
-          </form>
-          <p className="archive-publish-message">{editor ? (publishMessage || "图片会传到腾讯云，排版顺序保存到对应电影分页。") : "登录后排版工作台会自动解锁。"}</p>
         </section>
-      </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="archive-admin-workspace">
+      <header className="archive-workspace-topbar">
+        <a href="/archive/" className="archive-workspace-brand"><span>COSMOS</span><strong>宇宙放映内容台</strong></a>
+        <div className="archive-workspace-crumb"><span>往期活动</span><b>/</b><strong>ISSUE {activeFilm.issue} · {activeFilm.title}</strong><b>/</b><span>{archiveSectionLabels[activeSection].zh}</span></div>
+        <div className="archive-workspace-account"><span>{editor.role === "admin" ? "管理员" : "图片编辑"}</span><strong>{editor.username}</strong><button type="button" onClick={handleSignOut}>退出</button></div>
+      </header>
+
+      <form className="archive-workspace-form" onSubmit={handlePublish}>
+        <fieldset disabled={publishing}>
+          <div className="archive-workspace-grid">
+            <aside className="archive-workspace-nav" aria-label="内容导航">
+              <div className="archive-nav-heading"><span>CONTENT</span><strong>内容管理</strong></div>
+              <section>
+                <h2>选择电影</h2>
+                <div className="archive-film-nav">
+                  {archiveFilms.map((item) => <button type="button" className={film === item.slug ? "is-active" : ""} key={item.slug} onClick={() => setFilm(item.slug)}><span>{item.issue}</span><span><strong>{item.title}</strong><small>ISSUE {item.issue}</small></span></button>)}
+                </div>
+              </section>
+              <section>
+                <h2>内容分页</h2>
+                <div className="archive-section-nav">
+                  {(Object.keys(archiveSectionLabels) as ArchiveSection[]).map((key, index) => {
+                    const locked = editor.role === "photo-uploader" && key !== "photos";
+                    return <button type="button" className={activeSection === key ? "is-active" : ""} key={key} disabled={locked} onClick={() => setSection(key)}><span>{String(index + 1).padStart(2, "0")}</span><strong>{archiveSectionLabels[key].zh}</strong></button>;
+                  })}
+                </div>
+              </section>
+              <p className="archive-nav-hint">{sectionHints[activeSection]}</p>
+            </aside>
+
+            <section className="archive-word-editor" aria-labelledby="layout-studio-title">
+              <header className="archive-word-ribbon">
+                <div className="archive-ribbon-tabs"><strong id="layout-studio-title">开始</strong><span>插入</span><span>布局</span></div>
+                <div className="archive-ribbon-tools" aria-label="添加内容块">
+                  {canComposeText ? <div className="archive-ribbon-group"><span>文字</span><div><button type="button" onClick={() => addTextBlock("heading")}><b>T</b>小标题</button><button type="button" onClick={() => addTextBlock("paragraph")}><b>¶</b>正文</button><button type="button" onClick={() => addTextBlock("quote")}><b>“</b>引语</button></div></div> : null}
+                  <div className="archive-ribbon-group"><span>插入</span><div>{canComposeText ? <button type="button" onClick={addLinkBlock}><b>↗</b>按钮</button> : null}<label className="archive-ribbon-image"><b>▧</b>图片<input type="file" accept="image/*" multiple onChange={handleImageInput} /></label></div></div>
+                  <div className="archive-ribbon-group archive-ribbon-meta"><span>当前页面</span><div><b>ISSUE {activeFilm.issue}</b><strong>{archiveSectionLabels[activeSection].zh}</strong></div></div>
+                </div>
+              </header>
+
+              <div className="archive-document-desk">
+                <div className="archive-document-status"><span>{blocks.length} 个内容块</span><span>自动保存：发布时</span></div>
+                <article className="archive-document-page">
+                  <div className="archive-document-kicker"><span>COSMOS FILMS</span><span>ISSUE {activeFilm.issue} / {archiveSectionLabels[activeSection].en}</span></div>
+                  <label className="archive-document-title"><span>内容标题</span><textarea rows={2} value={title} onChange={(event) => setTitle(event.currentTarget.value)} placeholder={activeSection === "merch" ? "输入周边名称" : "输入这篇内容的标题"} /></label>
+                  <div className={`archive-block-canvas archive-document-canvas${isDroppingFiles ? " is-dropping" : ""}`} onDragOver={(event) => { event.preventDefault(); if (event.dataTransfer.types.includes("Files")) setIsDroppingFiles(true); }} onDragLeave={() => setIsDroppingFiles(false)} onDrop={handleWorkspaceDrop}>
+                    {!blocks.length ? (
+                      <div className="archive-empty-canvas"><strong>从上方插入内容</strong><span>也可以把一张或多张图片直接拖到这张白纸上</span></div>
+                    ) : blocks.map((block, index) => (
+                      <article className="archive-editor-block" draggable key={block.id} onDragStart={() => setDraggedBlockId(block.id)} onDragEnd={() => setDraggedBlockId(null)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handleBlockDrop(event, block.id)}>
+                        <header>
+                          <span className="archive-drag-handle">⠿ {String(index + 1).padStart(2, "0")} · {block.type.toUpperCase()}</span>
+                          <div><button type="button" aria-label="上移" disabled={index === 0} onClick={() => moveBlock(block.id, -1)}>↑</button><button type="button" aria-label="下移" disabled={index === blocks.length - 1} onClick={() => moveBlock(block.id, 1)}>↓</button><button type="button" aria-label="删除" onClick={() => removeBlock(block.id)}>×</button></div>
+                        </header>
+
+                        {block.type === "image" ? (
+                          <div className="archive-image-block-editor">
+                            {block.preview ? <img src={block.preview} alt="上传预览" /> : null}
+                            <div><label><span>图片宽度</span><select value={block.size ?? "full"} onChange={(event) => updateBlock(block.id, { size: event.currentTarget.value as "full" | "wide" | "half" })}><option value="full">通栏</option><option value="wide">宽版</option><option value="half">半版</option></select></label><label><span>图片说明</span><input value={block.caption ?? ""} onChange={(event) => updateBlock(block.id, { caption: event.currentTarget.value })} placeholder="显示在图片下面" /></label><label><span>替代文字</span><input value={block.alt ?? ""} onChange={(event) => updateBlock(block.id, { alt: event.currentTarget.value })} placeholder="简单描述画面" /></label></div>
+                          </div>
+                        ) : block.type === "link" ? (
+                          <div className="archive-link-block-editor"><input value={block.text} onChange={(event) => updateBlock(block.id, { text: event.currentTarget.value })} placeholder="按钮文字，例如：打开海报工具" /><input type="url" value={block.href} onChange={(event) => updateBlock(block.id, { href: event.currentTarget.value })} placeholder="https://…" /></div>
+                        ) : (
+                          <div className="archive-text-block-editor"><textarea rows={block.type === "paragraph" ? 7 : 3} value={block.text} onChange={(event) => updateBlock(block.id, { text: event.currentTarget.value })} placeholder={block.type === "heading" ? "输入小标题" : block.type === "quote" ? "输入引语" : "输入正文；换行会被保留"} /><label><span>对齐</span><select value={block.align ?? "left"} onChange={(event) => updateBlock(block.id, { align: event.currentTarget.value as "left" | "center" | "right" })}><option value="left">左对齐</option><option value="center">居中</option><option value="right">右对齐</option></select></label></div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <aside className="archive-preview-panel">
+              <header><div><span>PREVIEW</span><strong>手机预览</strong></div><i aria-hidden="true" /></header>
+              <div className="archive-phone-frame"><div className="archive-phone-speaker" /><div className="archive-phone-screen"><span className="archive-phone-route">ISSUE {activeFilm.issue} / {archiveSectionLabels[activeSection].zh}</span><h3>{title || "内容标题会出现在这里"}</h3>{previewBlocks.length ? <ArchiveLayout blocks={previewBlocks} /> : <p>插入内容以后，这里会实时显示手机端阅读效果。</p>}</div></div>
+              <div className="archive-publish-box"><div><span>发布位置</span><strong>{activeFilm.title} · {archiveSectionLabels[activeSection].zh}</strong></div><button className="archive-publish-layout" type="submit">{publishing ? "正在上传并发布…" : "发布内容"}</button><p className="archive-publish-message">{publishMessage || "图片会上传到腾讯云，当前排版顺序会原样保存。"}</p></div>
+            </aside>
+          </div>
+        </fieldset>
+      </form>
     </main>
   );
 }
