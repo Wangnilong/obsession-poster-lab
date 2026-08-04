@@ -39,6 +39,8 @@ next-env.d.ts
 /dist/
 /github-dist/
 /edgeone-dist/
+/.edgeone/
+/tmp/
 /release/
 /.wrangler/
 /outputs/

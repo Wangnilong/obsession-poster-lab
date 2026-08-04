@@ -1,0 +1,16 @@
+{
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "envId": "cosmosfilm42-admin-d8c82218a2fad",
+  "functionRoot": "cloudfunctions",
+  "functions": [
+    {
+      "name": "archive-api",
+      "description": "Cosmos Films public archive reader",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 10,
+      "memorySize": 256,
+      "installDependency": true
+    }
+  ]
+}

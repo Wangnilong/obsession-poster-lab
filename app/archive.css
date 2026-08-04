@@ -150,6 +150,7 @@ a.archive-entry:focus-visible { transform: translateY(-4px); border-color: var(-
 .archive-login-form,
 .archive-upload-preview { align-self: start; padding: clamp(28px, 4vw, 52px); background: #f5f1e8; border: 1px solid #c9c2b5; }
 .archive-form-heading h2 { margin: 8px 0 34px; font-size: 36px; }
+.archive-admin-safe-link { display: grid; min-height: 58px; margin: -10px 0 24px; color: #fff; font-weight: 900; background: var(--archive-accent); place-items: center; }
 .archive-login-form label,
 .archive-upload-preview label { display: grid; gap: 8px; margin-bottom: 20px; }
 .archive-login-form label > span,

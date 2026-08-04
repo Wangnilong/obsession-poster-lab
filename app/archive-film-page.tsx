@@ -6,8 +6,10 @@ import { useEffect, useState } from "react";
 import {
   archiveSectionLabels,
   findArchiveFilm,
+  type ArchiveEntry,
   type ArchiveSection,
 } from "./archive-data";
+import { loadArchiveContent } from "./cloudbase-archive";
 
 const sectionOrder: ArchiveSection[] = ["articles", "photos", "tools", "merch"];
 
@@ -20,6 +22,7 @@ function sectionFromLocation(): ArchiveSection {
 export default function ArchiveFilmPage({ slug }: { slug: string }) {
   const film = findArchiveFilm(slug);
   const [section, setSection] = useState<ArchiveSection>("articles");
+  const [published, setPublished] = useState<{ key: string; entries: ArchiveEntry[] }>({ key: "", entries: [] });
 
   useEffect(() => {
     const updateSection = () => setSection(sectionFromLocation());
@@ -27,6 +30,15 @@ export default function ArchiveFilmPage({ slug }: { slug: string }) {
     window.addEventListener("popstate", updateSection);
     return () => window.removeEventListener("popstate", updateSection);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const key = `${slug}:${section}`;
+    loadArchiveContent(slug, section).then((entries) => {
+      if (active) setPublished({ key, entries });
+    });
+    return () => { active = false; };
+  }, [slug, section]);
 
   if (!film) {
     return (
@@ -37,7 +49,8 @@ export default function ArchiveFilmPage({ slug }: { slug: string }) {
     );
   }
 
-  const entries = film.sections[section];
+  const publishedEntries = published.key === `${slug}:${section}` ? published.entries : [];
+  const entries = [...publishedEntries, ...film.sections[section]];
 
   const selectSection = (nextSection: ArchiveSection) => {
     const nextUrl = `${window.location.pathname}?section=${nextSection}`;

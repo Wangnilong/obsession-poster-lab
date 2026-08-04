@@ -102,8 +102,27 @@ test("server-renders the protected content desk interface", async () => {
   assert.match(html, /内容后台/);
   assert.match(html, /编辑登录/);
   assert.match(html, /发布内容/);
-  assert.match(html, /CloudBase/);
-  assert.match(source, /\/api\/archive\/auth\/session/);
+  assert.match(source, /CloudBase/);
+  assert.match(source, /signInArchiveUser/);
+});
+
+test("keeps archive roles and CloudBase publishing out of static passwords", async () => {
+  const [adminPage, archiveClient, filmPage, config] = await Promise.all([
+    readFile(new URL("../app/archive-admin-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloudbase-archive.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/archive-film-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../public/cloudbase-config.json", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(archiveClient, /huaishan: "admin"/);
+  assert.match(archiveClient, /wangnilong: "admin"/);
+  assert.match(archiveClient, /yuzhou: "photo-uploader"/);
+  assert.match(archiveClient, /signInWithUsernameAndPassword/);
+  assert.match(archiveClient, /collection\("archive_content"\)/);
+  assert.match(archiveClient, /uploadFile/);
+  assert.match(adminPage, /仅上传图片/);
+  assert.match(filmPage, /loadArchiveContent/);
+  assert.doesNotMatch(`${adminPage}${archiveClient}${config}`, /123456/);
 });
 
 test("server-renders a standalone editorial page for each issue", async () => {
