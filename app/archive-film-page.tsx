@@ -50,8 +50,16 @@ export default function ArchiveFilmPage({ slug }: { slug: string }) {
     );
   }
 
-  const publishedEntries = published.key === `${slug}:${section}` ? published.entries : [];
+  const publishedEntries = section !== "tools" && published.key === `${slug}:${section}` ? published.entries : [];
   const entries = [...publishedEntries, ...film.sections[section]];
+  const galleryImages = entries.flatMap((entry) => {
+    const images: { image: string; alt: string }[] = [];
+    if (entry.image) images.push({ image: entry.image, alt: entry.imageAlt ?? entry.title });
+    entry.layout?.forEach((block) => {
+      if (block.type === "image" && block.image) images.push({ image: block.image, alt: block.alt ?? entry.title });
+    });
+    return images;
+  });
 
   const selectSection = (nextSection: ArchiveSection) => {
     const nextUrl = `${window.location.pathname}?section=${nextSection}`;
@@ -117,7 +125,11 @@ export default function ArchiveFilmPage({ slug }: { slug: string }) {
               <p>{String(entries.length).padStart(2, "0")} ITEMS</p>
             </header>
 
-            {entries.length ? (
+            {(section === "photos" || section === "merch") && galleryImages.length ? (
+              <div className="archive-photo-wall">
+                {galleryImages.map((item, index) => <figure key={`${item.image}-${index}`}><img src={item.image} alt={item.alt} /><figcaption>{String(index + 1).padStart(2, "0")}</figcaption></figure>)}
+              </div>
+            ) : entries.length ? (
               <div className="archive-entry-grid">
                 {entries.map((entry, index) => {
                   const hasLayout = Boolean(entry.layout?.length);

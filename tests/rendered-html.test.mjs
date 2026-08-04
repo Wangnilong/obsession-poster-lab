@@ -106,7 +106,10 @@ test("server-renders the protected content desk interface", async () => {
   assert.match(source, /archive-workspace-nav/);
   assert.match(source, /archive-word-ribbon/);
   assert.match(source, /archive-document-page/);
-  assert.match(source, /手机预览/);
+  assert.match(source, /文章预览/);
+  assert.match(source, /图片墙预览/);
+  assert.match(source, /现成工具/);
+  assert.match(source, /只上传图片，不生成文章排版/);
   assert.match(source, /CloudBase/);
   assert.match(source, /signInArchiveUser/);
   assert.match(source, /moveBlockTo/);
