@@ -44,10 +44,11 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /DEATH LIST FIVE/);
   assert.match(html, /暗杀名单/);
   assert.match(html, /KILLER LICENSE/);
-  assert.match(html, /身份卡/);
-  assert.match(html, /上传照片/);
-  assert.match(html, /下载暗杀名单 PNG/);
-  assert.match(html, /下载身份卡 PNG/);
+  assert.match(html, /杀手身份卡/);
+  assert.match(html, /上传证件照/);
+  assert.match(html, /下载 A3 300DPI 暗杀名单/);
+  assert.match(html, /下载正面 PNG/);
+  assert.match(html, /下载背面 PNG/);
   assert.match(html, /照片只在当前浏览器中处理/);
 });
 

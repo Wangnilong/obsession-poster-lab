@@ -5521,6 +5521,61 @@ a.cf42-archive-row:hover .cf42-archive-title em {
   transform: rotate(1.1deg);
 }
 
+.kb-download-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.kb-download-row .kb-download {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.kb-license-maker .kb-download-secondary {
+  border-color: rgba(8, 8, 6, 0.72);
+  color: #15130a;
+  background: transparent;
+}
+
+.kb-card-pair {
+  position: relative;
+  z-index: 2;
+  width: min(920px, 94%);
+  display: grid;
+  gap: clamp(28px, 4vw, 54px);
+}
+
+.kb-card-pair figure {
+  min-width: 0;
+  margin: 0;
+}
+
+.kb-card-pair figure:first-child {
+  transform: rotate(-0.85deg);
+}
+
+.kb-card-pair figure:last-child {
+  transform: rotate(0.75deg);
+}
+
+.kb-card-pair canvas {
+  width: 100%;
+  max-width: none;
+  transform: none;
+  border-radius: clamp(12px, 2vw, 28px);
+  box-shadow: 0 34px 80px rgba(34, 0, 0, 0.48);
+}
+
+.kb-card-pair figcaption {
+  margin-top: 12px;
+  color: rgba(255, 238, 176, 0.72);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 8px;
+  letter-spacing: 0.16em;
+}
+
 .kb-footer {
   min-height: 112px;
   display: flex;
@@ -5628,6 +5683,19 @@ a.cf42-archive-row:hover .cf42-archive-title em {
   .kb-paper-stage canvas,
   .kb-card-stage canvas {
     width: 94%;
+  }
+
+  .kb-card-pair {
+    width: 96%;
+    gap: 26px;
+  }
+
+  .kb-card-pair canvas {
+    width: 100%;
+  }
+
+  .kb-download-row {
+    grid-template-columns: 1fr;
   }
 
   .kb-footer {
