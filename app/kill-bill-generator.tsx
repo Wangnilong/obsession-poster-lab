@@ -208,7 +208,55 @@ function drawBloodSpatter(
   context.restore();
 }
 
-function drawReferenceDeathList(canvas: HTMLCanvasElement, finalName: string) {
+function drawCustomTargetPatch(context: CanvasRenderingContext2D, finalName: string) {
+  context.save();
+  context.beginPath();
+  context.moveTo(322, 1072);
+  context.bezierCurveTo(410, 1045, 555, 1063, 640, 1051);
+  context.bezierCurveTo(748, 1040, 852, 1060, 925, 1094);
+  context.lineTo(910, 1287);
+  context.bezierCurveTo(790, 1301, 675, 1286, 565, 1300);
+  context.bezierCurveTo(452, 1315, 369, 1287, 318, 1264);
+  context.closePath();
+  context.clip();
+
+  const patch = context.createLinearGradient(320, 1070, 910, 1300);
+  patch.addColorStop(0, "rgba(252, 252, 249, 0.98)");
+  patch.addColorStop(0.55, "rgba(246, 247, 244, 0.98)");
+  patch.addColorStop(1, "rgba(239, 240, 237, 0.96)");
+  context.fillStyle = patch;
+  context.fillRect(300, 1035, 650, 300);
+
+  context.strokeStyle = "rgba(98, 101, 98, 0.08)";
+  context.lineCap = "round";
+  context.lineWidth = 3;
+  [
+    [350, 1110, 900, 1175],
+    [420, 1280, 805, 1082],
+    [555, 1050, 620, 1310],
+    [760, 1048, 870, 1295],
+  ].forEach(([x1, y1, x2, y2]) => {
+    context.beginPath();
+    context.moveTo(x1, y1);
+    context.quadraticCurveTo((x1 + x2) / 2 + 28, (y1 + y2) / 2 - 18, x2, y2);
+    context.stroke();
+  });
+  drawFineGrain(context, 1200, 1700, 87311, "48, 48, 45", 900);
+  context.restore();
+
+  const displayName = finalName.toUpperCase();
+  const nameSize = fitFont(context, displayName, 570, 132, handFont, "400");
+  context.textAlign = "left";
+  context.fillStyle = "#d30b10";
+  context.font = `400 ${nameSize}px ${handFont}`;
+  context.fillText(displayName, 356, 1241);
+}
+
+function drawReferenceDeathList(
+  canvas: HTMLCanvasElement,
+  finalName: string,
+  referenceImage?: HTMLImageElement,
+) {
   const context = canvas.getContext("2d");
   if (!context) return;
   const scaleX = canvas.width / 1200;
@@ -216,6 +264,13 @@ function drawReferenceDeathList(canvas: HTMLCanvasElement, finalName: string) {
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
   context.scale(scaleX, scaleY);
+
+  if (referenceImage) {
+    context.drawImage(referenceImage, 0, 0, 1200, 1700);
+    if (finalName.toUpperCase() !== "BILL") drawCustomTargetPatch(context, finalName);
+    context.restore();
+    return;
+  }
 
   drawCrumpledPaper(context);
 
@@ -475,16 +530,17 @@ function downloadCanvas(canvas: HTMLCanvasElement | null, filename: string) {
   }, "image/png");
 }
 
-function downloadA3DeathList(finalName: string) {
+function downloadA3DeathList(finalName: string, referenceImage?: HTMLImageElement) {
   const canvas = document.createElement("canvas");
   canvas.width = 3508;
   canvas.height = 4961;
-  drawReferenceDeathList(canvas, finalName);
+  drawReferenceDeathList(canvas, finalName, referenceImage);
   downloadCanvas(canvas, `death-list-${finalName.toLowerCase().replace(/\s+/g, "-")}-a3-300dpi.png`);
 }
 
 export default function KillBillGenerator() {
   const deathListRef = useRef<HTMLCanvasElement>(null);
+  const deathListMasterRef = useRef<HTMLImageElement | null>(null);
   const licenseFrontRef = useRef<HTMLCanvasElement>(null);
   const licenseBackRef = useRef<HTMLCanvasElement>(null);
   const [nameMode, setNameMode] = useState<"bill" | "custom">("bill");
@@ -501,8 +557,24 @@ export default function KillBillGenerator() {
 
   useEffect(() => {
     let active = true;
+    const draw = (referenceImage?: HTMLImageElement) => {
+      if (active && deathListRef.current) {
+        drawReferenceDeathList(deathListRef.current, targetName.slice(0, 24), referenceImage);
+      }
+    };
+
     document.fonts.ready.then(() => {
-      if (active && deathListRef.current) drawReferenceDeathList(deathListRef.current, targetName.slice(0, 24));
+      if (deathListMasterRef.current) {
+        draw(deathListMasterRef.current);
+        return;
+      }
+      const image = new Image();
+      image.onload = () => {
+        deathListMasterRef.current = image;
+        draw(image);
+      };
+      image.onerror = () => draw();
+      image.src = "/kill-bill/death-list-master.png";
     });
     return () => { active = false; };
   }, [targetName]);
@@ -588,7 +660,7 @@ export default function KillBillGenerator() {
         <div className="kb-maker-controls">
           <p>01 / DEATH LIST FIVE</p>
           <h2 id="death-title">暗杀名单</h2>
-          <p className="kb-maker-intro">按电影里的白色皱纸、红黑手写字和血迹重新制作。前四个名字已经划掉，第五个可以是 BILL，也可以是你。</p>
+          <p className="kb-maker-intro">直接以你给的暗杀名单为视觉母版。默认 BILL 版保留原图的字迹、皱纸和血迹；切换后只替换第五个名字。</p>
           <div className="kb-segmented" aria-label="第五个名字模式">
             <button type="button" className={nameMode === "bill" ? "active" : ""} onClick={() => setNameMode("bill")}>BILL</button>
             <button type="button" className={nameMode === "custom" ? "active" : ""} onClick={() => setNameMode("custom")}>我的名字</button>
@@ -603,7 +675,7 @@ export default function KillBillGenerator() {
               placeholder="输入你的名字"
             />
           </label>
-          <button className="kb-download" type="button" onClick={() => downloadA3DeathList(targetName.slice(0, 24))}>
+          <button className="kb-download" type="button" onClick={() => downloadA3DeathList(targetName.slice(0, 24), deathListMasterRef.current ?? undefined)}>
             下载 A3 300DPI 暗杀名单 <span>↓</span>
           </button>
           <small>高清文件在你的设备本地生成，不上传姓名；画面比例为 A3。</small>
