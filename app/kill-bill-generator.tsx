@@ -649,7 +649,7 @@ export default function KillBillGenerator() {
         <div className="kb-maker-controls">
           <p>01 / DEATH LIST FIVE</p>
           <h2 id="death-title">暗杀名单</h2>
-          <p className="kb-maker-intro">直接以你给的暗杀名单为视觉母版。默认 BILL 版保留原图的字迹、皱纸和血迹；切换后只替换第五个名字。</p>
+          <p className="kb-maker-intro">前四个名字已经划掉。第五个目标，可以是 BILL，也可以不小心输入其他人的名字，也是情理之中。</p>
           <div className="kb-segmented" aria-label="第五个名字模式">
             <button type="button" className={nameMode === "bill" ? "active" : ""} onClick={() => setNameMode("bill")}>BILL</button>
             <button type="button" className={nameMode === "custom" ? "active" : ""} onClick={() => setNameMode("custom")}>我的名字</button>
