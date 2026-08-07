@@ -44,6 +44,7 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /DEATH LIST FIVE/);
   assert.match(html, /暗杀名单/);
   assert.match(html, /KILLER LICENSE/);
+  assert.match(html, /\/kill-bill\/cosmos-kill-bill-logo\.png/);
   assert.match(html, /杀手身份卡/);
   assert.match(html, /上传证件照/);
   assert.match(html, /下载 A3 300DPI 暗杀名单/);

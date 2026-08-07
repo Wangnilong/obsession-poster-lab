@@ -5109,10 +5109,12 @@ a.cf42-archive-row:hover .cf42-archive-title em {
 }
 
 .kb-home-link img {
-  width: clamp(150px, 17vw, 222px);
+  width: clamp(188px, 22vw, 286px);
+  max-height: 50px;
   height: auto;
   display: block;
-  filter: saturate(0.88);
+  object-fit: contain;
+  object-position: left center;
 }
 
 .kb-header p,
@@ -5640,7 +5642,8 @@ a.cf42-archive-row:hover .cf42-archive-title em {
   }
 
   .kb-home-link img {
-    width: 132px;
+    width: 184px;
+    max-height: 42px;
   }
 
   .kb-hero-image {

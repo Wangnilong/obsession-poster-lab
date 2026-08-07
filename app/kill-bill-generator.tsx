@@ -465,7 +465,7 @@ function drawLicenseFront(canvas: HTMLCanvasElement, name: string, alias: string
   context.fillText("ISSUED BY COSMOS FILMS · ISSUE 02", width - 64, height - 48);
 }
 
-function drawLicenseBack(canvas: HTMLCanvasElement) {
+function drawLicenseBack(canvas: HTMLCanvasElement, logo?: HTMLImageElement) {
   const context = canvas.getContext("2d");
   if (!context) return;
   const { width, height } = canvas;
@@ -481,9 +481,15 @@ function drawLicenseBack(canvas: HTMLCanvasElement) {
   context.strokeStyle = "#79131d";
   context.lineWidth = 6;
   context.lineJoin = "round";
-  context.strokeText(title, width / 2, height / 2 + 12);
-  context.fillText(title, width / 2, height / 2 + 12);
+  context.strokeText(title, width / 2, 445);
+  context.fillText(title, width / 2, 445);
   context.textBaseline = "alphabetic";
+
+  if (logo) {
+    const logoWidth = 820;
+    const logoHeight = logoWidth * (logo.naturalHeight / logo.naturalWidth);
+    context.drawImage(logo, (width - logoWidth) / 2, 686, logoWidth, logoHeight);
+  }
 }
 
 function downloadCanvas(canvas: HTMLCanvasElement | null, filename: string) {
@@ -526,6 +532,7 @@ export default function KillBillGenerator() {
   const deathListBlankRef = useRef<HTMLImageElement | null>(null);
   const licenseFrontRef = useRef<HTMLCanvasElement>(null);
   const licenseBackRef = useRef<HTMLCanvasElement>(null);
+  const licenseLogoRef = useRef<HTMLImageElement | null>(null);
   const [nameMode, setNameMode] = useState<"bill" | "custom">("bill");
   const [customTarget, setCustomTarget] = useState("YOUR NAME");
   const [licenseName, setLicenseName] = useState("BEATRIX KIDDO");
@@ -570,7 +577,7 @@ export default function KillBillGenerator() {
 
   useEffect(() => {
     let active = true;
-    const draw = (photo?: HTMLImageElement) => {
+    const draw = (photo?: HTMLImageElement, logo?: HTMLImageElement) => {
       if (!active) return;
       if (licenseFrontRef.current) {
         drawLicenseFront(
@@ -580,16 +587,25 @@ export default function KillBillGenerator() {
           photo,
         );
       }
-      if (licenseBackRef.current) drawLicenseBack(licenseBackRef.current);
+      if (licenseBackRef.current) drawLicenseBack(licenseBackRef.current, logo);
     };
 
-    document.fonts.ready.then(() => {
+    document.fonts.ready.then(async () => {
+      let logo = licenseLogoRef.current ?? undefined;
+      if (!logo) {
+        try {
+          logo = await loadCanvasImage("/kill-bill/cosmos-kill-bill-logo.png");
+          licenseLogoRef.current = logo;
+        } catch {
+          logo = undefined;
+        }
+      }
       if (!photoUrl) {
-        draw();
+        draw(undefined, logo);
         return;
       }
       const image = new Image();
-      image.onload = () => draw(image);
+      image.onload = () => draw(image, logo);
       image.onerror = () => setPhotoError("这张图片无法读取，请换一张 JPG 或 PNG。");
       image.src = photoUrl;
     });
@@ -623,7 +639,7 @@ export default function KillBillGenerator() {
     <main className="kb-page">
       <header className="kb-header">
         <a href="/" className="kb-home-link" aria-label="返回宇宙放映首页">
-          <img src="/cosmos42/logo.png" alt="宇宙放映" />
+          <img src="/kill-bill/cosmos-kill-bill-logo.png" alt="宇宙放映 Kill Bill" />
         </a>
         <p>NEXT SCREENING · ISSUE 02</p>
         <a href="#death-list">开始制作 ↘</a>
