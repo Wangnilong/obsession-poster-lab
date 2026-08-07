@@ -465,45 +465,71 @@ function drawLicenseFront(canvas: HTMLCanvasElement, name: string, alias: string
   context.fillText("ISSUED BY COSMOS FILMS · ISSUE 02", width - 64, height - 48);
 }
 
-function drawLicenseBack(canvas: HTMLCanvasElement, logo?: HTMLImageElement) {
+function drawLicenseBack(
+  canvas: HTMLCanvasElement,
+  logo?: HTMLImageElement,
+  wordmark?: HTMLImageElement,
+) {
   const context = canvas.getContext("2d");
   if (!context) return;
   const { width, height } = canvas;
   context.clearRect(0, 0, width, height);
   drawLicenseSurface(context, width, height);
 
-  const logoWidth = 820;
-  const logoX = (width - logoWidth) / 2;
-  const redFigureCenterX = logoX + logoWidth * (619.25 / 966);
-  const titleCenterX = logo ? redFigureCenterX : width / 2;
-  const titleSize = 250;
-  context.textBaseline = "middle";
-  context.font = `400 ${titleSize}px "Anton", Impact, sans-serif`;
-  context.fillStyle = "#d71832";
-  context.strokeStyle = "#79131d";
-  context.lineWidth = 6;
-  context.lineJoin = "round";
-  context.textAlign = "right";
-  context.strokeText("KILL", titleCenterX - 34, 500);
-  context.fillText("KILL", titleCenterX - 34, 500);
-  context.textAlign = "left";
-  context.strokeText("BILL", titleCenterX + 34, 500);
-  context.fillText("BILL", titleCenterX + 34, 500);
-  context.textBaseline = "alphabetic";
-
   context.save();
-  context.strokeStyle = "#171512";
-  context.lineWidth = 5;
-  context.lineCap = "round";
-  context.beginPath();
-  context.moveTo(titleCenterX - 390, 638);
-  context.lineTo(titleCenterX + 390, 638);
-  context.stroke();
+  const drawSquareGrid = (
+    startX: number,
+    startY: number,
+    columns: number,
+    rows: number,
+    square: number,
+    gap: number,
+    color: string,
+  ) => {
+    context.fillStyle = color;
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        roundedRectPath(
+          context,
+          startX + column * (square + gap),
+          startY + row * (square + gap),
+          square,
+          square,
+          7,
+        );
+        context.fill();
+      }
+    }
+  };
+
+  drawSquareGrid(430, 42, 10, 7, 28, 14, "rgba(157, 159, 153, 0.18)");
+  drawSquareGrid(1050, 110, 5, 4, 30, 14, "rgba(157, 159, 153, 0.14)");
+  drawSquareGrid(610, 266, 9, 12, 34, 13, "rgba(239, 82, 21, 0.78)");
+  drawSquareGrid(465, 630, 8, 9, 28, 14, "rgba(157, 159, 153, 0.17)");
+
+  context.fillStyle = "rgba(239, 82, 21, 0.7)";
+  context.fillRect(404, 646, 4, 225);
+  context.fillRect(397, 646, 18, 4);
+  context.fillRect(397, 867, 18, 4);
   context.restore();
 
+  if (wordmark) {
+    const wordmarkWidth = 1420;
+    const wordmarkHeight = wordmarkWidth * (wordmark.naturalHeight / wordmark.naturalWidth);
+    context.drawImage(wordmark, 72, 238, wordmarkWidth, wordmarkHeight);
+  } else {
+    context.fillStyle = "#f21b2b";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.font = '400 270px "Anton", Impact, sans-serif';
+    context.fillText("KILL BILL", width / 2, 430);
+    context.textBaseline = "alphabetic";
+  }
+
   if (logo) {
+    const logoWidth = 650;
     const logoHeight = logoWidth * (logo.naturalHeight / logo.naturalWidth);
-    context.drawImage(logo, logoX, 686, logoWidth, logoHeight);
+    context.drawImage(logo, 918, 716, logoWidth, logoHeight);
   }
 }
 
@@ -548,6 +574,7 @@ export default function KillBillGenerator() {
   const licenseFrontRef = useRef<HTMLCanvasElement>(null);
   const licenseBackRef = useRef<HTMLCanvasElement>(null);
   const licenseLogoRef = useRef<HTMLImageElement | null>(null);
+  const licenseWordmarkRef = useRef<HTMLImageElement | null>(null);
   const [nameMode, setNameMode] = useState<"bill" | "custom">("bill");
   const [customTarget, setCustomTarget] = useState("YOUR NAME");
   const [licenseName, setLicenseName] = useState("BEATRIX KIDDO");
@@ -592,7 +619,7 @@ export default function KillBillGenerator() {
 
   useEffect(() => {
     let active = true;
-    const draw = (photo?: HTMLImageElement, logo?: HTMLImageElement) => {
+    const draw = (photo?: HTMLImageElement, logo?: HTMLImageElement, wordmark?: HTMLImageElement) => {
       if (!active) return;
       if (licenseFrontRef.current) {
         drawLicenseFront(
@@ -602,11 +629,12 @@ export default function KillBillGenerator() {
           photo,
         );
       }
-      if (licenseBackRef.current) drawLicenseBack(licenseBackRef.current, logo);
+      if (licenseBackRef.current) drawLicenseBack(licenseBackRef.current, logo, wordmark);
     };
 
     document.fonts.ready.then(async () => {
       let logo = licenseLogoRef.current ?? undefined;
+      let wordmark = licenseWordmarkRef.current ?? undefined;
       if (!logo) {
         try {
           logo = await loadCanvasImage("/kill-bill/cosmos-kill-bill-logo.png");
@@ -615,12 +643,20 @@ export default function KillBillGenerator() {
           logo = undefined;
         }
       }
+      if (!wordmark) {
+        try {
+          wordmark = await loadCanvasImage("/kill-bill/kill-bill-wordmark.png");
+          licenseWordmarkRef.current = wordmark;
+        } catch {
+          wordmark = undefined;
+        }
+      }
       if (!photoUrl) {
-        draw(undefined, logo);
+        draw(undefined, logo, wordmark);
         return;
       }
       const image = new Image();
-      image.onload = () => draw(image, logo);
+      image.onload = () => draw(image, logo, wordmark);
       image.onerror = () => setPhotoError("这张图片无法读取，请换一张 JPG 或 PNG。");
       image.src = photoUrl;
     });
@@ -666,7 +702,7 @@ export default function KillBillGenerator() {
         </div>
         <div className="kb-hero-copy">
           <p>COSMOS FILMS PRESENTS</p>
-          <h1 id="kb-title"><span>KILL</span><span>BILL</span></h1>
+          <h1 id="kb-title"><img src="/kill-bill/kill-bill-wordmark.png" alt="KILL BILL" /></h1>
           <strong>把第五个名字，换成你自己。</strong>
           <nav aria-label="生成器模式">
             <a href="#death-list">暗杀名单</a>

@@ -5193,21 +5193,15 @@ a.cf42-archive-row:hover .cf42-archive-title em {
 }
 
 .kb-hero h1 {
-  display: grid;
+  width: min(100%, 690px);
   margin: 0;
-  color: var(--kb-yellow);
-  font-family: "Anton", Impact, sans-serif;
-  font-size: clamp(112px, 14vw, 220px);
-  font-weight: 400;
-  letter-spacing: -0.055em;
-  line-height: 0.72;
-  text-shadow: 9px 9px 0 var(--kb-red);
+  line-height: 0;
 }
 
-.kb-hero h1 span:last-child {
-  color: transparent;
-  -webkit-text-stroke: clamp(1px, 0.18vw, 3px) var(--kb-yellow);
-  text-shadow: none;
+.kb-hero h1 img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .kb-hero-copy > strong {
@@ -5656,7 +5650,7 @@ a.cf42-archive-row:hover .cf42-archive-title em {
   }
 
   .kb-hero h1 {
-    font-size: clamp(104px, 35vw, 148px);
+    width: min(100%, 560px);
   }
 
   .kb-hero-copy > strong {
