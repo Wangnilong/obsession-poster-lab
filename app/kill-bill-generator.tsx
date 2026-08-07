@@ -403,9 +403,8 @@ function drawLicenseFront(canvas: HTMLCanvasElement, name: string, alias: string
   drawOutlinedSerif(context, "The Killer License", width / 2, 186, 136, 1500);
 
   drawLabelValue(context, 86, 276, "License#", "TU-KB-01");
-  drawLabelValue(context, 500, 276, "Birthdate", "04.29.1970");
-  drawLabelValue(context, 870, 276, "Class", "ASSASSIN");
-  drawLabelValue(context, 1285, 276, "Restrictions", "BILL");
+  drawLabelValue(context, 650, 276, "Class", "ASSASSIN");
+  drawLabelValue(context, 1180, 276, "Restrictions", "BILL");
 
   const photoX = 86;
   const photoY = 404;
@@ -453,12 +452,6 @@ function drawLicenseFront(canvas: HTMLCanvasElement, name: string, alias: string
   context.fillText("5 S Kill Bill Blvd", 1080, 654);
   context.fillText("El Paso, TX 79927", 1080, 704);
 
-  drawLabelValue(context, 555, 815, "Sex", "F");
-  drawLabelValue(context, 760, 815, "Height", "5'11\"");
-  drawLabelValue(context, 990, 815, "Weight", "140");
-  drawLabelValue(context, 1222, 815, "Hair", "BLONDE");
-  drawLabelValue(context, 1515, 815, "Eyes", "BLUE", "center");
-
   context.fillStyle = "rgba(33, 34, 24, 0.58)";
   context.textAlign = "right";
   context.font = "700 20px Arial, sans-serif";
@@ -479,7 +472,7 @@ function drawLicenseBack(
   if (wordmark) {
     const wordmarkWidth = 1420;
     const wordmarkHeight = wordmarkWidth * (wordmark.naturalHeight / wordmark.naturalWidth);
-    context.drawImage(wordmark, 72, 238, wordmarkWidth, wordmarkHeight);
+    context.drawImage(wordmark, 112, 238, wordmarkWidth, wordmarkHeight);
   } else {
     context.fillStyle = "#f21b2b";
     context.textAlign = "center";
