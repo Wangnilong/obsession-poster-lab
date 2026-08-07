@@ -454,9 +454,9 @@ function drawLicenseFront(
   const displayName = (name.trim() || "BEATRIX KIDDO").toUpperCase();
   drawOutlinedSerif(context, displayName, 1080, 590, 86, 1040);
   context.fillStyle = "#171713";
-  context.font = '400 38px "Microsoft YaHei", "PingFang SC", Arial, sans-serif';
-  context.fillText("深圳市南山区科苑南路2888号", 1080, 654);
-  context.fillText("深圳湾万象城A区L3–L4层 · 杜比影院", 1080, 704);
+  context.font = "400 36px Arial, sans-serif";
+  context.fillText("Shenzhen Bay MixC · 2888 Keyuan South Rd", 1080, 654);
+  context.fillText("Nanshan, Shenzhen · Zone A, L3–L4 · Dolby Cinema", 1080, 704);
 
   if (wordmark) {
     const wordmarkWidth = 500;
