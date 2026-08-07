@@ -461,10 +461,10 @@ function drawLicenseFront(
   drawLabelValue(context, 975, 820, "ISSUE", "02");
   drawLabelValue(context, 1285, 820, "EYES", "DANGEROUS");
 
-  context.fillStyle = "#d61b32";
+  context.fillStyle = "rgba(33, 34, 24, 0.58)";
   context.textAlign = "right";
-  context.font = "900 24px Arial, sans-serif";
-  context.fillText("COSMOSFILM", width - 64, height - 48);
+  context.font = "700 20px Arial, sans-serif";
+  context.fillText("ISSUED BY COSMOS FILMS · ISSUE 02", width - 64, height - 48);
 }
 
 function drawLicenseBack(
@@ -492,9 +492,9 @@ function drawLicenseBack(
   }
 
   if (logo) {
-    const logoWidth = 560;
+    const logoWidth = 500;
     const logoHeight = logoWidth * (logo.naturalHeight / logo.naturalWidth);
-    context.drawImage(logo, (width - logoWidth) / 2, 704, logoWidth, logoHeight);
+    context.drawImage(logo, width - logoWidth - 150, 704, logoWidth, logoHeight);
   }
 }
 
