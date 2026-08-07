@@ -492,12 +492,12 @@ function drawLicenseBack(canvas: HTMLCanvasElement, logo?: HTMLImageElement) {
   context.textBaseline = "alphabetic";
 
   context.save();
-  context.strokeStyle = "#d71832";
-  context.lineWidth = 6;
+  context.strokeStyle = "#171512";
+  context.lineWidth = 5;
   context.lineCap = "round";
   context.beginPath();
-  context.moveTo(titleCenterX - 400, 638);
-  context.lineTo(titleCenterX + 400, 638);
+  context.moveTo(titleCenterX - 390, 638);
+  context.lineTo(titleCenterX + 390, 638);
   context.stroke();
   context.restore();
 
