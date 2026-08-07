@@ -473,6 +473,10 @@ function drawLicenseBack(canvas: HTMLCanvasElement, logo?: HTMLImageElement) {
   drawLicenseSurface(context, width, height);
 
   const title = "KILL BILL";
+  const logoWidth = 820;
+  const logoX = (width - logoWidth) / 2;
+  const redFigureCenterX = logoX + logoWidth * (629.5 / 966);
+  const titleCenterX = logo ? redFigureCenterX : width / 2;
   const titleSize = fitFont(context, title, width - 250, 250, '"Anton", Impact, sans-serif', "400");
   context.textAlign = "center";
   context.textBaseline = "middle";
@@ -481,14 +485,13 @@ function drawLicenseBack(canvas: HTMLCanvasElement, logo?: HTMLImageElement) {
   context.strokeStyle = "#79131d";
   context.lineWidth = 6;
   context.lineJoin = "round";
-  context.strokeText(title, width / 2, 445);
-  context.fillText(title, width / 2, 445);
+  context.strokeText(title, titleCenterX, 445);
+  context.fillText(title, titleCenterX, 445);
   context.textBaseline = "alphabetic";
 
   if (logo) {
-    const logoWidth = 820;
     const logoHeight = logoWidth * (logo.naturalHeight / logo.naturalWidth);
-    context.drawImage(logo, (width - logoWidth) / 2, 686, logoWidth, logoHeight);
+    context.drawImage(logo, logoX, 686, logoWidth, logoHeight);
   }
 }
 
