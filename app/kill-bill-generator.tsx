@@ -396,7 +396,6 @@ function drawLicenseFront(
   name: string,
   alias: string,
   photo?: HTMLImageElement,
-  wordmark?: HTMLImageElement,
 ) {
   const context = canvas.getContext("2d");
   if (!context) return;
@@ -458,19 +457,14 @@ function drawLicenseFront(
   context.fillText("Shenzhen Bay MixC · 2888 Keyuan South Rd", 1080, 654);
   context.fillText("Nanshan, Shenzhen · Zone A, L3–L4 · Dolby Cinema", 1080, 704);
 
-  if (wordmark) {
-    const wordmarkWidth = 500;
-    const wordmarkHeight = wordmarkWidth * (wordmark.naturalHeight / wordmark.naturalWidth);
-    context.save();
-    context.globalAlpha = 0.96;
-    context.drawImage(wordmark, 1080, 824, wordmarkWidth, wordmarkHeight);
-    context.restore();
-  }
+  drawLabelValue(context, 585, 820, "STATUS", "ACTIVE");
+  drawLabelValue(context, 975, 820, "ISSUE", "02");
+  drawLabelValue(context, 1285, 820, "EYES", "DANGEROUS");
 
-  context.fillStyle = "rgba(33, 34, 24, 0.58)";
+  context.fillStyle = "#d61b32";
   context.textAlign = "right";
-  context.font = "700 20px Arial, sans-serif";
-  context.fillText("ISSUED BY COSMOS FILMS · ISSUE 02", width - 64, height - 48);
+  context.font = "900 24px Arial, sans-serif";
+  context.fillText("COSMOSFILM", width - 64, height - 48);
 }
 
 function drawLicenseBack(
@@ -485,9 +479,9 @@ function drawLicenseBack(
   drawLicenseSurface(context, width, height);
 
   if (wordmark) {
-    const wordmarkWidth = 1420;
+    const wordmarkWidth = 1120;
     const wordmarkHeight = wordmarkWidth * (wordmark.naturalHeight / wordmark.naturalWidth);
-    context.drawImage(wordmark, 112, 238, wordmarkWidth, wordmarkHeight);
+    context.drawImage(wordmark, (width - wordmarkWidth) / 2, 252, wordmarkWidth, wordmarkHeight);
   } else {
     context.fillStyle = "#f21b2b";
     context.textAlign = "center";
@@ -498,9 +492,9 @@ function drawLicenseBack(
   }
 
   if (logo) {
-    const logoWidth = 650;
+    const logoWidth = 560;
     const logoHeight = logoWidth * (logo.naturalHeight / logo.naturalWidth);
-    context.drawImage(logo, 918, 716, logoWidth, logoHeight);
+    context.drawImage(logo, (width - logoWidth) / 2, 704, logoWidth, logoHeight);
   }
 }
 
@@ -598,7 +592,6 @@ export default function KillBillGenerator() {
           (licenseName.trim() || "YOUR NAME").slice(0, 26),
           licenseAlias.slice(0, 24),
           photo,
-          wordmark,
         );
       }
       if (licenseBackRef.current) drawLicenseBack(licenseBackRef.current, logo, wordmark);
