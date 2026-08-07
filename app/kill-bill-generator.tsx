@@ -485,9 +485,19 @@ function drawLicenseBack(canvas: HTMLCanvasElement, logo?: HTMLImageElement) {
   context.strokeStyle = "#79131d";
   context.lineWidth = 6;
   context.lineJoin = "round";
-  context.strokeText(title, titleCenterX, 445);
-  context.fillText(title, titleCenterX, 445);
+  context.strokeText(title, titleCenterX, 500);
+  context.fillText(title, titleCenterX, 500);
   context.textBaseline = "alphabetic";
+
+  context.save();
+  context.strokeStyle = "#d71832";
+  context.lineWidth = 6;
+  context.lineCap = "round";
+  context.beginPath();
+  context.moveTo(titleCenterX - 400, 638);
+  context.lineTo(titleCenterX + 400, 638);
+  context.stroke();
+  context.restore();
 
   if (logo) {
     const logoHeight = logoWidth * (logo.naturalHeight / logo.naturalWidth);
