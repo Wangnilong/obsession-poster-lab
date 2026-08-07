@@ -476,43 +476,6 @@ function drawLicenseBack(
   context.clearRect(0, 0, width, height);
   drawLicenseSurface(context, width, height);
 
-  context.save();
-  const drawSquareGrid = (
-    startX: number,
-    startY: number,
-    columns: number,
-    rows: number,
-    square: number,
-    gap: number,
-    color: string,
-  ) => {
-    context.fillStyle = color;
-    for (let row = 0; row < rows; row += 1) {
-      for (let column = 0; column < columns; column += 1) {
-        roundedRectPath(
-          context,
-          startX + column * (square + gap),
-          startY + row * (square + gap),
-          square,
-          square,
-          7,
-        );
-        context.fill();
-      }
-    }
-  };
-
-  drawSquareGrid(430, 42, 10, 7, 28, 14, "rgba(157, 159, 153, 0.18)");
-  drawSquareGrid(1050, 110, 5, 4, 30, 14, "rgba(157, 159, 153, 0.14)");
-  drawSquareGrid(610, 266, 9, 12, 34, 13, "rgba(239, 82, 21, 0.78)");
-  drawSquareGrid(465, 630, 8, 9, 28, 14, "rgba(157, 159, 153, 0.17)");
-
-  context.fillStyle = "rgba(239, 82, 21, 0.7)";
-  context.fillRect(404, 646, 4, 225);
-  context.fillRect(397, 646, 18, 4);
-  context.fillRect(397, 867, 18, 4);
-  context.restore();
-
   if (wordmark) {
     const wordmarkWidth = 1420;
     const wordmarkHeight = wordmarkWidth * (wordmark.naturalHeight / wordmark.naturalWidth);
