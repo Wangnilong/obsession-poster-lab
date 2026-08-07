@@ -391,7 +391,13 @@ function drawOutlinedSerif(
   context.fillText(text, x, y);
 }
 
-function drawLicenseFront(canvas: HTMLCanvasElement, name: string, alias: string, photo?: HTMLImageElement) {
+function drawLicenseFront(
+  canvas: HTMLCanvasElement,
+  name: string,
+  alias: string,
+  photo?: HTMLImageElement,
+  wordmark?: HTMLImageElement,
+) {
   const context = canvas.getContext("2d");
   if (!context) return;
   const width = canvas.width;
@@ -448,9 +454,18 @@ function drawLicenseFront(canvas: HTMLCanvasElement, name: string, alias: string
   const displayName = (name.trim() || "BEATRIX KIDDO").toUpperCase();
   drawOutlinedSerif(context, displayName, 1080, 590, 86, 1040);
   context.fillStyle = "#171713";
-  context.font = "400 42px Arial, sans-serif";
-  context.fillText("5 S Kill Bill Blvd", 1080, 654);
-  context.fillText("El Paso, TX 79927", 1080, 704);
+  context.font = '400 38px "Microsoft YaHei", "PingFang SC", Arial, sans-serif';
+  context.fillText("深圳市南山区科苑南路2888号", 1080, 654);
+  context.fillText("深圳湾万象城A区L3–L4层 · 杜比影院", 1080, 704);
+
+  if (wordmark) {
+    const wordmarkWidth = 500;
+    const wordmarkHeight = wordmarkWidth * (wordmark.naturalHeight / wordmark.naturalWidth);
+    context.save();
+    context.globalAlpha = 0.96;
+    context.drawImage(wordmark, 1080, 824, wordmarkWidth, wordmarkHeight);
+    context.restore();
+  }
 
   context.fillStyle = "rgba(33, 34, 24, 0.58)";
   context.textAlign = "right";
@@ -583,6 +598,7 @@ export default function KillBillGenerator() {
           (licenseName.trim() || "YOUR NAME").slice(0, 26),
           licenseAlias.slice(0, 24),
           photo,
+          wordmark,
         );
       }
       if (licenseBackRef.current) drawLicenseBack(licenseBackRef.current, logo, wordmark);
