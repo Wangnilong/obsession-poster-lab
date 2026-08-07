@@ -214,7 +214,7 @@ function drawCustomTarget(context: CanvasRenderingContext2D, finalName: string) 
   const displayName = finalName.toUpperCase();
   const nameSize = fitFont(context, displayName, 570, 128, thinHandFont, "400");
   context.textAlign = "left";
-  context.fillStyle = "#cf1014";
+  context.fillStyle = "#dc0000";
   context.font = `400 ${nameSize}px ${thinHandFont}`;
   context.fillText(displayName, 356, 1248);
 }
@@ -273,7 +273,7 @@ function drawReferenceDeathList(
     const displayName = name.toUpperCase();
     const nameSize = fitFont(context, displayName, 770, index === 4 ? 128 : 94, handFont, "400");
     context.textAlign = "left";
-    context.fillStyle = "#cf0b10";
+    context.fillStyle = "#dc0000";
     context.font = `400 ${nameSize}px ${handFont}`;
     context.fillText(displayName, 342, y);
     const nameWidth = context.measureText(displayName).width;
