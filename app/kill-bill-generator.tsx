@@ -472,21 +472,23 @@ function drawLicenseBack(canvas: HTMLCanvasElement, logo?: HTMLImageElement) {
   context.clearRect(0, 0, width, height);
   drawLicenseSurface(context, width, height);
 
-  const title = "KILL BILL";
   const logoWidth = 820;
   const logoX = (width - logoWidth) / 2;
-  const redFigureCenterX = logoX + logoWidth * (629.5 / 966);
+  const redFigureCenterX = logoX + logoWidth * (619.25 / 966);
   const titleCenterX = logo ? redFigureCenterX : width / 2;
-  const titleSize = fitFont(context, title, width - 250, 250, '"Anton", Impact, sans-serif', "400");
-  context.textAlign = "center";
+  const titleSize = 250;
   context.textBaseline = "middle";
   context.font = `400 ${titleSize}px "Anton", Impact, sans-serif`;
   context.fillStyle = "#d71832";
   context.strokeStyle = "#79131d";
   context.lineWidth = 6;
   context.lineJoin = "round";
-  context.strokeText(title, titleCenterX, 500);
-  context.fillText(title, titleCenterX, 500);
+  context.textAlign = "right";
+  context.strokeText("KILL", titleCenterX - 34, 500);
+  context.fillText("KILL", titleCenterX - 34, 500);
+  context.textAlign = "left";
+  context.strokeText("BILL", titleCenterX + 34, 500);
+  context.fillText("BILL", titleCenterX + 34, 500);
   context.textBaseline = "alphabetic";
 
   context.save();
