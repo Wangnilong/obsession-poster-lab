@@ -14,7 +14,12 @@ const allowedOrigins = new Set([
 const allowedFilms = new Set(["obsession", "kill-bill"]);
 const allowedSections = new Set(["articles", "photos", "tools", "merch"]);
 const allowedCardTypes = new Set(["death-list", "killer-license"]);
-const adminUsers = new Set(["huaishan", "niuza", "xiaoai", "wangnilong"]);
+const adminUserIds = new Set([
+  "2084617266415722497",
+  "2084617281419927554",
+  "2084617296435154946",
+  "2084617312926359553",
+]);
 
 function requestOrigin(event) {
   return event.headers?.origin || event.headers?.Origin || "";
@@ -89,9 +94,9 @@ async function listCards(headers) {
 
 function requireAdmin() {
   const userInfo = cloud.auth().getUserInfo();
-  const username = cleanText(userInfo?.customUserId, 64).toLowerCase();
-  if (!adminUsers.has(username)) throw new Error("只有管理员可以查看和管理用户作品");
-  return username;
+  const uid = cleanText(userInfo?.uid, 64);
+  if (!adminUserIds.has(uid)) throw new Error("只有管理员可以查看和管理用户作品");
+  return uid;
 }
 
 async function listAdminCards() {
