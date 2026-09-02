@@ -4,6 +4,13 @@
 
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import "@fontsource/shadows-into-light";
+import {
+  canvasToShareImage,
+  loadPublicCardCreations,
+  publishCardCreation,
+  type KillBillCardType,
+  type PublicCardCreation,
+} from "./cloudbase-cards";
 
 const crossedNames = [
   ["O-REN ISHII", "COTTONMOUTH"],
@@ -546,6 +553,11 @@ export default function KillBillGenerator() {
   const [licenseAlias, setLicenseAlias] = useState("UMA THURMAN");
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoError, setPhotoError] = useState("");
+  const [communityCards, setCommunityCards] = useState<PublicCardCreation[]>([]);
+  const [communityTotal, setCommunityTotal] = useState(0);
+  const [communityState, setCommunityState] = useState<"loading" | "ready" | "error">("loading");
+  const [sharingType, setSharingType] = useState<KillBillCardType | null>(null);
+  const [shareMessage, setShareMessage] = useState("");
 
   const targetName = useMemo(
     () => (nameMode === "bill" ? "BILL" : customTarget.trim() || "YOUR NAME"),
@@ -633,6 +645,31 @@ export default function KillBillGenerator() {
     if (photoUrl) URL.revokeObjectURL(photoUrl);
   }, [photoUrl]);
 
+  const refreshCommunity = async () => {
+    setCommunityState("loading");
+    try {
+      const result = await loadPublicCardCreations();
+      setCommunityCards(result.cards);
+      setCommunityTotal(result.total);
+      setCommunityState("ready");
+    } catch {
+      setCommunityState("error");
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    loadPublicCardCreations().then((result) => {
+      if (!active) return;
+      setCommunityCards(result.cards);
+      setCommunityTotal(result.total);
+      setCommunityState("ready");
+    }).catch(() => {
+      if (active) setCommunityState("error");
+    });
+    return () => { active = false; };
+  }, []);
+
   const handlePhoto = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -651,6 +688,27 @@ export default function KillBillGenerator() {
 
   const filenameName = (licenseName.trim() || "your-name").toLowerCase().replace(/\s+/g, "-");
 
+  const shareCard = async (cardType: KillBillCardType, canvas: HTMLCanvasElement | null, displayName: string) => {
+    if (!canvas || sharingType) return;
+    const confirmed = window.confirm("公开后，作品图片和卡面名字会出现在宇宙作品墙，也会进入管理员后台。确定公开展示吗？");
+    if (!confirmed) return;
+    setSharingType(cardType);
+    setShareMessage("正在把作品送进宇宙作品墙…");
+    try {
+      await publishCardCreation({
+        cardType,
+        displayName: (displayName.trim() || "ANONYMOUS").slice(0, 32),
+        imageData: canvasToShareImage(canvas),
+      });
+      setShareMessage("已公开展示，作品也已自动记入后台。");
+      await refreshCommunity();
+    } catch (error) {
+      setShareMessage(error instanceof Error ? error.message : "作品保存失败，请稍后再试。");
+    } finally {
+      setSharingType(null);
+    }
+  };
+
   return (
     <main className="kb-page">
       <header className="kb-header">
@@ -660,6 +718,7 @@ export default function KillBillGenerator() {
         <p>NEXT SCREENING · ISSUE 02</p>
         <a href="#death-list">开始制作 ↘</a>
       </header>
+      {shareMessage ? <div className="kb-share-toast" role="status">{shareMessage}</div> : null}
 
       <section className="kb-hero" aria-labelledby="kb-title">
         <div className="kb-hero-image" aria-hidden="true">
@@ -672,6 +731,7 @@ export default function KillBillGenerator() {
           <nav aria-label="生成器模式">
             <a href="#death-list">暗杀名单</a>
             <a href="#id-card">Killer License</a>
+            <a href="#community">玩家作品</a>
           </nav>
         </div>
         <span className="kb-hero-issue" aria-hidden="true">02</span>
@@ -696,18 +756,23 @@ export default function KillBillGenerator() {
               placeholder="输入你的名字"
             />
           </label>
-          <button
-            className="kb-download"
-            type="button"
-            onClick={() => downloadA3DeathList(
-              targetName.slice(0, 24),
-              deathListMasterRef.current ?? undefined,
-              deathListBlankRef.current ?? undefined,
-            )}
-          >
-            下载 A3 300DPI 暗杀名单 <span>↓</span>
-          </button>
-          <small>高清文件在你的设备本地生成，不上传姓名；画面比例为 A3。</small>
+          <div className="kb-save-choice">
+            <button
+              className="kb-download"
+              type="button"
+              onClick={() => downloadA3DeathList(
+                targetName.slice(0, 24),
+                deathListMasterRef.current ?? undefined,
+                deathListBlankRef.current ?? undefined,
+              )}
+            >
+              仅保存到手机 <span>↓</span>
+            </button>
+            <button className="kb-share" type="button" disabled={sharingType !== null} onClick={() => void shareCard("death-list", deathListRef.current, targetName)}>
+              {sharingType === "death-list" ? "正在公开…" : "公开展示到作品墙"} <span>↗</span>
+            </button>
+          </div>
+          <small>手机保存不会上传；公开展示会在确认后保存图片与卡面名字。下载文件仍为 A3 300DPI。</small>
         </div>
         <div className="kb-canvas-stage kb-paper-stage">
           <canvas ref={deathListRef} width={1200} height={1700} aria-label={`暗杀名单，第五个名字为 ${targetName}`} />
@@ -740,7 +805,10 @@ export default function KillBillGenerator() {
               下载背面 PNG <span>↓</span>
             </button>
           </div>
-          <small>照片只在当前浏览器中处理；正反面均为 1712 × 1080 高清 PNG。</small>
+          <button className="kb-share kb-license-share" type="button" disabled={sharingType !== null} onClick={() => void shareCard("killer-license", licenseFrontRef.current, licenseName)}>
+            {sharingType === "killer-license" ? "正在公开…" : "公开正面到作品墙"} <span>↗</span>
+          </button>
+          <small>下载时照片只在当前浏览器中处理；选择公开后，身份卡正面及姓名会上传并展示。正反面均为 1712 × 1080 高清 PNG。</small>
         </div>
         <div className="kb-canvas-stage kb-card-stage">
           <div className="kb-card-pair">
@@ -754,6 +822,26 @@ export default function KillBillGenerator() {
             </figure>
           </div>
         </div>
+      </section>
+
+      <section className="kb-community" id="community" aria-labelledby="community-title">
+        <header>
+          <div>
+            <p>03 / COMMUNITY ARCHIVE</p>
+            <h2 id="community-title">宇宙杀手档案</h2>
+            <span>公开作品会自动来到这里，也会同步进入管理员统计。</span>
+          </div>
+          <div className="kb-community-count"><strong>{communityTotal}</strong><span>份公开作品</span></div>
+        </header>
+        {communityState === "loading" ? <p className="kb-community-status">正在接收宇宙信号…</p> : null}
+        {communityState === "error" ? <div className="kb-community-status"><span>作品墙暂时没有连上。</span><button type="button" onClick={() => void refreshCommunity()}>重新连接</button></div> : null}
+        {communityState === "ready" && communityCards.length === 0 ? <div className="kb-community-empty"><span>NO RECORDS YET</span><strong>第一张卡，等你留下。</strong><a href="#id-card">开始制作 ↗</a></div> : null}
+        {communityCards.length ? <div className="kb-community-grid">
+          {communityCards.map((card, index) => <figure key={card.id} className={card.cardType === "death-list" ? "is-poster" : "is-license"}>
+            <div><img src={card.image} alt={`${card.displayName} 制作的${card.cardType === "death-list" ? "暗杀名单" : "杀手身份卡"}`} loading={index > 5 ? "lazy" : "eager"} /></div>
+            <figcaption><span>{card.cardType === "death-list" ? "DEATH LIST" : "KILLER LICENSE"}</span><strong>{card.displayName}</strong><time>{new Date(card.createdAt).toLocaleDateString("zh-CN")}</time></figcaption>
+          </figure>)}
+        </div> : null}
       </section>
 
       <footer className="kb-footer">

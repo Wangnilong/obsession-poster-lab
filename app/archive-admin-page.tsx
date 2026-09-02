@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
 import { archiveFilms, archiveSectionLabels, type ArchiveLayoutBlock, type ArchiveSection } from "./archive-data";
 import ArchiveLayout from "./archive-layout";
+import CardCreationsAdmin from "./card-creations-admin";
 import {
   getArchiveAdminUrl,
   isCloudBaseConfigured,
@@ -79,6 +80,7 @@ export default function ArchiveAdminPage() {
   const [drafts, setDrafts] = useState<Record<string, ArchiveDraft>>({});
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [isDroppingFiles, setIsDroppingFiles] = useState(false);
+  const [adminView, setAdminView] = useState<"content" | "community">("content");
 
   const activeSection: ArchiveSection = editor?.role === "photo-uploader" ? "photos" : section;
   const activeFilm = archiveFilms.find((item) => item.slug === film) ?? archiveFilms[0];
@@ -306,7 +308,7 @@ export default function ArchiveAdminPage() {
     <main className="archive-admin-workspace">
       <header className="archive-workspace-topbar">
         <a href="/archive/" className="archive-workspace-brand"><span>COSMOS</span><strong>宇宙放映内容台</strong></a>
-        <div className="archive-workspace-crumb"><span>往期活动</span><b>/</b><strong>ISSUE {activeFilm.issue} · {activeFilm.title}</strong><b>/</b><span>{archiveSectionLabels[activeSection].zh}</span></div>
+        <div className="archive-workspace-crumb"><span>往期活动</span><b>/</b><strong>{adminView === "community" ? "KILL BILL · 用户作品" : `ISSUE ${activeFilm.issue} · ${activeFilm.title}`}</strong><b>/</b><span>{adminView === "community" ? "自动统计" : archiveSectionLabels[activeSection].zh}</span></div>
         <div className="archive-workspace-account"><span>{editor.role === "admin" ? "管理员" : "图片编辑"}</span><strong>{editor.username}</strong><button type="button" onClick={handleSignOut}>退出</button></div>
       </header>
 
@@ -318,7 +320,7 @@ export default function ArchiveAdminPage() {
               <section>
                 <h2>选择电影</h2>
                 <div className="archive-film-nav">
-                  {archiveFilms.map((item) => <button type="button" className={film === item.slug ? "is-active" : ""} key={item.slug} onClick={() => setFilm(item.slug)}><span>{item.issue}</span><span><strong>{item.title}</strong><small>ISSUE {item.issue}</small></span></button>)}
+                  {archiveFilms.map((item) => <button type="button" className={adminView === "content" && film === item.slug ? "is-active" : ""} key={item.slug} onClick={() => { setFilm(item.slug); setAdminView("content"); }}><span>{item.issue}</span><span><strong>{item.title}</strong><small>ISSUE {item.issue}</small></span></button>)}
                 </div>
               </section>
               <section>
@@ -326,14 +328,15 @@ export default function ArchiveAdminPage() {
                 <div className="archive-section-nav">
                   {(Object.keys(archiveSectionLabels) as ArchiveSection[]).map((key, index) => {
                     const locked = editor.role === "photo-uploader" && key !== "photos";
-                    return <button type="button" className={activeSection === key ? "is-active" : ""} key={key} disabled={locked} onClick={() => setSection(key)}><span>{String(index + 1).padStart(2, "0")}</span><strong>{archiveSectionLabels[key].zh}</strong></button>;
+                    return <button type="button" className={adminView === "content" && activeSection === key ? "is-active" : ""} key={key} disabled={locked} onClick={() => { setSection(key); setAdminView("content"); }}><span>{String(index + 1).padStart(2, "0")}</span><strong>{archiveSectionLabels[key].zh}</strong></button>;
                   })}
                 </div>
               </section>
-              <p className="archive-nav-hint">{sectionHints[activeSection]}</p>
+              {editor.role === "admin" ? <section className="archive-community-nav"><h2>自动收集</h2><button type="button" className={adminView === "community" ? "is-active" : ""} onClick={() => setAdminView("community")}><span>05</span><strong>用户作品 <b>LIVE</b></strong></button></section> : null}
+              <p className="archive-nav-hint">{adminView === "community" ? "自动查看所有公开提交，统计作品数量，并管理作品墙显示状态。" : sectionHints[activeSection]}</p>
             </aside>
 
-            <section className="archive-word-editor" aria-labelledby="layout-studio-title">
+            {adminView === "community" ? <CardCreationsAdmin role={editor.role} /> : <><section className="archive-word-editor" aria-labelledby="layout-studio-title">
               {activeSection === "articles" ? <>
                 <header className="archive-word-ribbon">
                   <div className="archive-ribbon-tabs"><strong id="layout-studio-title">开始</strong><span>插入</span><span>布局</span></div>
@@ -380,7 +383,7 @@ export default function ArchiveAdminPage() {
                 <div className="archive-phone-frame"><div className="archive-phone-speaker" /><div className={`archive-phone-screen${isImageLibrary ? " is-gallery" : ""}`}><span className="archive-phone-route">ISSUE {activeFilm.issue} / {archiveSectionLabels[activeSection].zh}</span>{activeSection === "articles" ? <><h3>{title || "文章标题会出现在这里"}</h3>{previewBlocks.length ? <ArchiveLayout blocks={previewBlocks} /> : <p>写入内容以后，这里会实时显示手机端阅读效果。</p>}</> : previewBlocks.length ? <div className="archive-phone-gallery">{previewBlocks.filter((block) => block.type === "image").map((block, index) => block.type === "image" && block.image ? <img src={block.image} alt={block.alt || `图片 ${index + 1}`} key={`${block.image}-${index}`} /> : null)}</div> : <p>选择图片以后，这里会直接显示图片墙。</p>}</div></div>
                 <div className="archive-publish-box"><div><span>发布位置</span><strong>{activeFilm.title} · {archiveSectionLabels[activeSection].zh}</strong></div><button className="archive-publish-layout" type="submit">{publishing ? "正在上传并发布…" : isImageLibrary ? `发布 ${blocks.length} 张图片` : "发布文章"}</button><p className="archive-publish-message">{publishMessage || (isImageLibrary ? "只上传图片，不生成文章排版。" : "文章排版会按当前顺序保存。")}</p></div>
               </>}
-            </aside>
+            </aside></>}
           </div>
         </fieldset>
       </form>

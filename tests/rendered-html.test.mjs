@@ -47,10 +47,13 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /\/kill-bill\/cosmos-kill-bill-logo\.png/);
   assert.match(html, /杀手身份卡/);
   assert.match(html, /上传证件照/);
-  assert.match(html, /下载 A3 300DPI 暗杀名单/);
+  assert.match(html, /仅保存到手机/);
+  assert.match(html, /公开展示到作品墙/);
   assert.match(html, /下载正面 PNG/);
   assert.match(html, /下载背面 PNG/);
   assert.match(html, /照片只在当前浏览器中处理/);
+  assert.match(html, /宇宙杀手档案/);
+  assert.match(html, /手机保存不会上传/);
 });
 
 test("server-renders a poster-only screening archive index", async () => {
@@ -112,6 +115,8 @@ test("server-renders the protected content desk interface", async () => {
   assert.match(source, /图片墙预览/);
   assert.match(source, /现成工具/);
   assert.match(source, /只上传图片，不生成文章排版/);
+  assert.match(source, /用户作品/);
+  assert.match(source, /CardCreationsAdmin/);
   assert.match(source, /CloudBase/);
   assert.match(source, /signInArchiveUser/);
   assert.match(source, /moveBlockTo/);
@@ -119,9 +124,11 @@ test("server-renders the protected content desk interface", async () => {
 });
 
 test("keeps archive roles and CloudBase publishing out of static passwords", async () => {
-  const [adminPage, archiveClient, filmPage, config] = await Promise.all([
+  const [adminPage, archiveClient, cardClient, archiveApi, filmPage, config] = await Promise.all([
     readFile(new URL("../app/archive-admin-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cloudbase-archive.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloudbase-cards.ts", import.meta.url), "utf8"),
+    readFile(new URL("../cloudfunctions/archive-api/index.js", import.meta.url), "utf8"),
     readFile(new URL("../app/archive-film-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../public/cloudbase-config.json", import.meta.url), "utf8"),
   ]);
@@ -133,6 +140,11 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(archiveClient, /collection\("archive_content"\)/);
   assert.match(archiveClient, /uploadFile/);
   assert.match(archiveClient, /layout: layout\.length/);
+  assert.match(archiveClient, /loadAdminCardCreations/);
+  assert.match(cardClient, /consentToPublish: true/);
+  assert.match(cardClient, /canvasToShareImage/);
+  assert.match(archiveApi, /collection\("card_creations"\)/);
+  assert.match(archiveApi, /visibility: "public"/);
   assert.match(adminPage, /图片编辑/);
   assert.match(filmPage, /loadArchiveContent/);
   assert.match(filmPage, /ArchiveLayout/);

@@ -5,6 +5,15 @@ type CloudBaseApp = ReturnType<CloudBaseSdk["init"]>;
 
 export type ArchiveRole = "admin" | "photo-uploader";
 
+export type AdminCardCreation = {
+  id: string;
+  cardType: "death-list" | "killer-license";
+  displayName: string;
+  image: string;
+  createdAt: number;
+  status: "published" | "hidden";
+};
+
 type CloudBaseConfig = {
   env: string;
   region: string;
@@ -212,4 +221,45 @@ export async function loadArchiveContent(film: string, section: ArchiveSection):
   } catch {
     return [];
   }
+}
+
+export async function loadAdminCardCreations(role: ArchiveRole): Promise<AdminCardCreation[]> {
+  if (role !== "admin") throw new Error("只有管理员可以查看用户作品");
+  const app = await getArchiveApp();
+  const result = await app.database()
+    .collection("card_creations")
+    .where({ film: "kill-bill" })
+    .orderBy("createdAt", "desc")
+    .limit(100)
+    .get();
+  const records = result.data as Array<{
+    _id: string;
+    cardType: "death-list" | "killer-license";
+    displayName: string;
+    fileID: string;
+    createdAt: number;
+    status: "published" | "hidden";
+  }>;
+  const fileIDs = records.map((record) => record.fileID).filter(Boolean);
+  const temporaryUrls = new Map<string, string>();
+  if (fileIDs.length) {
+    const urlResult = await app.getTempFileURL({ fileList: fileIDs });
+    for (const file of urlResult.fileList ?? []) {
+      if (file.fileID && file.tempFileURL) temporaryUrls.set(file.fileID, file.tempFileURL);
+    }
+  }
+  return records.map((record) => ({
+    id: record._id,
+    cardType: record.cardType,
+    displayName: record.displayName,
+    image: temporaryUrls.get(record.fileID) ?? "",
+    createdAt: record.createdAt,
+    status: record.status,
+  }));
+}
+
+export async function setCardCreationStatus(role: ArchiveRole, id: string, status: "published" | "hidden") {
+  if (role !== "admin") throw new Error("只有管理员可以管理用户作品");
+  const app = await getArchiveApp();
+  await app.database().collection("card_creations").doc(id).update({ status });
 }
