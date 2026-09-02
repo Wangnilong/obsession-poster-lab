@@ -14,6 +14,7 @@ const allowedOrigins = new Set([
 const allowedFilms = new Set(["obsession", "kill-bill"]);
 const allowedSections = new Set(["articles", "photos", "tools", "merch"]);
 const allowedCardTypes = new Set(["death-list", "killer-license"]);
+const adminUsers = new Set(["huaishan", "niuza", "xiaoai", "wangnilong"]);
 
 function requestOrigin(event) {
   return event.headers?.origin || event.headers?.Origin || "";
@@ -84,6 +85,44 @@ async function listCards(headers) {
     console.error("card list failed", error);
     return json(200, headers, { total: 0, cards: [] });
   }
+}
+
+function requireAdmin() {
+  const userInfo = cloud.auth().getUserInfo();
+  const username = cleanText(userInfo?.customUserId, 64).toLowerCase();
+  if (!adminUsers.has(username)) throw new Error("只有管理员可以查看和管理用户作品");
+  return username;
+}
+
+async function listAdminCards() {
+  requireAdmin();
+  const result = await db.collection("card_creations")
+    .where({ film: "kill-bill" })
+    .orderBy("createdAt", "desc")
+    .limit(100)
+    .get();
+  const records = result.data || [];
+  const temporaryUrls = await getTemporaryUrls([...new Set(records.map((record) => record.fileID).filter(Boolean))]);
+  return {
+    ok: true,
+    cards: records.filter((record) => record.source !== "bootstrap").map((record) => ({
+      id: record._id,
+      cardType: record.cardType,
+      displayName: record.displayName,
+      image: temporaryUrls.get(record.fileID) || "",
+      createdAt: record.createdAt,
+      status: record.status === "hidden" ? "hidden" : "published",
+    })),
+  };
+}
+
+async function setCardStatus(event) {
+  requireAdmin();
+  const id = cleanText(event.id, 128);
+  const status = cleanText(event.status, 16);
+  if (!id || !["published", "hidden"].includes(status)) throw new Error("作品状态参数不正确");
+  await db.collection("card_creations").doc(id).update({ status });
+  return { ok: true };
 }
 
 async function createCard(event, headers) {
@@ -173,6 +212,23 @@ async function listArchive(event, headers) {
 }
 
 exports.main = async (event = {}) => {
+  if (!event.httpMethod && event.action === "admin-cards") {
+    try {
+      return await listAdminCards();
+    } catch (error) {
+      console.error("admin card list failed", error);
+      return { ok: false, message: error instanceof Error ? error.message : "用户作品加载失败" };
+    }
+  }
+  if (!event.httpMethod && event.action === "set-card-status") {
+    try {
+      return await setCardStatus(event);
+    } catch (error) {
+      console.error("card status update failed", error);
+      return { ok: false, message: error instanceof Error ? error.message : "作品状态更新失败" };
+    }
+  }
+
   const headers = responseHeaders(event);
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers, body: "" };
 

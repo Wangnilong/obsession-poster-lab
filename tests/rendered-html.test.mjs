@@ -141,10 +141,14 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(archiveClient, /uploadFile/);
   assert.match(archiveClient, /layout: layout\.length/);
   assert.match(archiveClient, /loadAdminCardCreations/);
+  assert.match(archiveClient, /action: "admin-cards"/);
+  assert.match(archiveClient, /action: "set-card-status"/);
   assert.match(cardClient, /consentToPublish: true/);
   assert.match(cardClient, /canvasToShareImage/);
   assert.match(archiveApi, /collection\("card_creations"\)/);
   assert.match(archiveApi, /visibility: "public"/);
+  assert.match(archiveApi, /adminUsers/);
+  assert.match(archiveApi, /requireAdmin/);
   assert.match(adminPage, /图片编辑/);
   assert.match(filmPage, /loadArchiveContent/);
   assert.match(filmPage, /ArchiveLayout/);
