@@ -42,21 +42,47 @@ export async function publishCardCreation(input: {
   const apiUrl = await loadPublicApiUrl();
   const endpoint = new URL(apiUrl);
   endpoint.searchParams.set("action", "create-card");
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ ...input, consentToPublish: true }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ ...input, consentToPublish: true }),
+    });
+  } catch {
+    throw new Error("作品没有传上去，请检查网络后再试一次");
+  }
   return readJson<{ id: string; image: string }>(response);
 }
 
-export function canvasToShareImage(canvas: HTMLCanvasElement, maxDimension = 1600) {
-  const scale = Math.min(1, maxDimension / Math.max(canvas.width, canvas.height));
+function dataUrlByteLength(dataUrl: string) {
+  const encoded = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  return Math.floor(encoded.length * 0.75);
+}
+
+export function canvasToShareImage(canvas: HTMLCanvasElement, targetBytes = 52 * 1024) {
   const output = document.createElement("canvas");
-  output.width = Math.max(1, Math.round(canvas.width * scale));
-  output.height = Math.max(1, Math.round(canvas.height * scale));
   const context = output.getContext("2d");
   if (!context) throw new Error("浏览器无法处理这张图片");
-  context.drawImage(canvas, 0, 0, output.width, output.height);
-  return output.toDataURL("image/jpeg", 0.88);
+
+  let maxDimension = Math.min(900, Math.max(canvas.width, canvas.height));
+  let latest = "";
+  while (maxDimension >= 360) {
+    const scale = Math.min(1, maxDimension / Math.max(canvas.width, canvas.height));
+    output.width = Math.max(1, Math.round(canvas.width * scale));
+    output.height = Math.max(1, Math.round(canvas.height * scale));
+    context.fillStyle = "#f8f6dc";
+    context.fillRect(0, 0, output.width, output.height);
+    context.drawImage(canvas, 0, 0, output.width, output.height);
+
+    for (const quality of [0.78, 0.66, 0.54, 0.44]) {
+      latest = output.toDataURL("image/jpeg", quality);
+      if (dataUrlByteLength(latest) <= targetBytes) return latest;
+    }
+    maxDimension = Math.floor(maxDimension * 0.78);
+  }
+
+  latest = output.toDataURL("image/jpeg", 0.34);
+  if (dataUrlByteLength(latest) > targetBytes) throw new Error("网页展示图生成失败，请换一张照片后重试");
+  return latest;
 }

@@ -153,7 +153,7 @@ async function createCard(event, headers) {
   const imageMatch = String(payload.imageData || "").match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
   if (!imageMatch) return json(400, headers, { message: "作品图片格式不支持" });
   const fileContent = Buffer.from(imageMatch[2], "base64");
-  if (!fileContent.length || fileContent.length > 3 * 1024 * 1024) {
+  if (!fileContent.length || fileContent.length > 64 * 1024) {
     return json(413, headers, { message: "作品图片过大，请重新生成后再试" });
   }
 
