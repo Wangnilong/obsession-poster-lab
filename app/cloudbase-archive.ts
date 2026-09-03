@@ -7,11 +7,12 @@ export type ArchiveRole = "admin" | "photo-uploader";
 
 export type AdminCardCreation = {
   id: string;
-  cardType: "death-list" | "killer-license";
+  cardType: "killer-license";
   displayName: string;
   image: string;
   createdAt: number;
   status: "published" | "hidden";
+  visibility: "public" | "private";
 };
 
 type CloudBaseConfig = {
@@ -246,4 +247,21 @@ export async function setCardCreationStatus(role: ArchiveRole, id: string, statu
   });
   const payload = response.result as { ok?: boolean; message?: string };
   if (!payload?.ok) throw new Error(payload?.message || "作品状态更新失败");
+}
+
+export async function downloadAllCardCreations(role: ArchiveRole) {
+  if (role !== "admin") throw new Error("只有管理员可以下载用户作品");
+  const app = await getArchiveApp();
+  const response = await app.callFunction({
+    name: "archive-api",
+    data: { action: "export-card-images" },
+    parse: true,
+  });
+  const payload = response.result as { ok?: boolean; downloadUrl?: string; filename?: string; count?: number; message?: string };
+  if (!payload?.ok || !payload.downloadUrl) throw new Error(payload?.message || "图片打包失败");
+  return {
+    downloadUrl: payload.downloadUrl,
+    filename: payload.filename || "cosmosfilm-killer-licenses.zip",
+    count: payload.count ?? 0,
+  };
 }

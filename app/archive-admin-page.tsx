@@ -333,7 +333,7 @@ export default function ArchiveAdminPage() {
                 </div>
               </section>
               {editor.role === "admin" ? <section className="archive-community-nav"><h2>自动收集</h2><button type="button" className={adminView === "community" ? "is-active" : ""} onClick={() => setAdminView("community")}><span>05</span><strong>用户作品 <b>LIVE</b></strong></button></section> : null}
-              <p className="archive-nav-hint">{adminView === "community" ? "自动查看所有公开提交，统计作品数量，并管理作品墙显示状态。" : sectionHints[activeSection]}</p>
+              <p className="archive-nav-hint">{adminView === "community" ? "自动查看全部身份小卡，下载完整图片包，并管理作品墙显示状态。" : sectionHints[activeSection]}</p>
             </aside>
 
             {adminView === "community" ? <CardCreationsAdmin role={editor.role} /> : <><section className="archive-word-editor" aria-labelledby="layout-studio-title">

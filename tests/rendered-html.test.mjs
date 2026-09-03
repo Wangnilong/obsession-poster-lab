@@ -40,20 +40,24 @@ test("server-renders the Kill Bill artefact generators", async () => {
   const response = await render("/kill-bill");
   assert.equal(response.status, 200);
 
-  const html = await response.text();
+  const [html, source] = await Promise.all([
+    response.text(),
+    readFile(new URL("../app/kill-bill-generator.tsx", import.meta.url), "utf8"),
+  ]);
   assert.match(html, /DEATH LIST FIVE/);
   assert.match(html, /暗杀名单/);
   assert.match(html, /KILLER LICENSE/);
   assert.match(html, /\/kill-bill\/cosmos-kill-bill-logo\.png/);
   assert.match(html, /杀手身份卡/);
   assert.match(html, /上传证件照/);
-  assert.match(html, /仅保存到手机/);
-  assert.match(html, /公开展示到作品墙/);
-  assert.match(html, /下载正面 PNG/);
-  assert.match(html, /下载背面 PNG/);
-  assert.match(html, /照片只在当前浏览器中处理/);
+  assert.match(html, /下载 A3 图片/);
+  assert.match(html, /公开正面到作品墙/);
+  assert.match(html, /保存正面到手机/);
+  assert.match(html, /保存背面到手机/);
+  assert.match(html, /小卡正面和卡面姓名都会留存在管理员后台/);
   assert.match(html, /宇宙杀手档案/);
-  assert.match(html, /手机保存不会上传/);
+  assert.match(html, /暗杀名单只在你的设备上生成和下载/);
+  assert.doesNotMatch(source, /shareCard\("death-list"/);
 });
 
 test("server-renders a poster-only screening archive index", async () => {
@@ -143,13 +147,18 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(archiveClient, /loadAdminCardCreations/);
   assert.match(archiveClient, /action: "admin-cards"/);
   assert.match(archiveClient, /action: "set-card-status"/);
-  assert.match(cardClient, /consentToPublish: true/);
+  assert.match(archiveClient, /action: "export-card-images"/);
+  assert.match(cardClient, /consentToStore: true/);
+  assert.match(cardClient, /consentToPublish: input\.visibility === "public"/);
   assert.match(cardClient, /canvasToShareImage/);
   assert.match(cardClient, /targetBytes = 52 \* 1024/);
   assert.match(cardClient, /maxDimension = Math\.floor\(maxDimension \* 0\.78\)/);
   assert.match(cardClient, /作品没有传上去/);
   assert.match(archiveApi, /collection\("card_creations"\)/);
   assert.match(archiveApi, /visibility: "public"/);
+  assert.match(archiveApi, /visibility === "public" \? "published" : "hidden"/);
+  assert.match(archiveApi, /exportCardImages/);
+  assert.match(archiveApi, /new JSZip/);
   assert.match(archiveApi, /adminUserIds/);
   assert.match(archiveApi, /requireAdmin/);
   assert.match(adminPage, /图片编辑/);

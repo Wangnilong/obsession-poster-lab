@@ -2,6 +2,7 @@
 
 const crypto = require("node:crypto");
 const cloudbase = require("@cloudbase/node-sdk");
+const JSZip = require("jszip");
 
 const cloud = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
 const db = cloud.database();
@@ -9,11 +10,12 @@ const db = cloud.database();
 const allowedOrigins = new Set([
   "https://cosmosfilm42.cn",
   "https://www.cosmosfilm42.cn",
+  "https://cosmosfilm42.spiffy-moose-2906.chatgpt.site",
   "https://cosmosfilm42-admin-d8c82218a2fad-1325477277.tcloudbaseapp.com",
 ]);
 const allowedFilms = new Set(["obsession", "kill-bill"]);
 const allowedSections = new Set(["articles", "photos", "tools", "merch"]);
-const allowedCardTypes = new Set(["death-list", "killer-license"]);
+const allowedCardTypes = new Set(["killer-license"]);
 const adminUserIds = new Set([
   "2084617266415722497",
   "2084617281419927554",
@@ -56,11 +58,32 @@ function cleanText(value, maxLength) {
 async function getTemporaryUrls(fileIDs) {
   const temporaryUrls = new Map();
   if (!fileIDs.length) return temporaryUrls;
-  const urlResult = await cloud.getTempFileURL({ fileList: fileIDs });
-  for (const file of urlResult.fileList || []) {
-    if (file.fileID && file.tempFileURL) temporaryUrls.set(file.fileID, file.tempFileURL);
+  for (let start = 0; start < fileIDs.length; start += 50) {
+    const urlResult = await cloud.getTempFileURL({ fileList: fileIDs.slice(start, start + 50) });
+    for (const file of urlResult.fileList || []) {
+      if (file.fileID && file.tempFileURL) temporaryUrls.set(file.fileID, file.tempFileURL);
+    }
   }
   return temporaryUrls;
+}
+
+async function listAllCardRecords() {
+  const records = [];
+  const pageSize = 100;
+  let offset = 0;
+  while (true) {
+    const result = await db.collection("card_creations")
+      .where({ film: "kill-bill" })
+      .orderBy("createdAt", "desc")
+      .skip(offset)
+      .limit(pageSize)
+      .get();
+    const page = result.data || [];
+    records.push(...page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+  }
+  return records.filter((record) => record.source !== "bootstrap" && record.cardType === "killer-license");
 }
 
 async function listCards(headers) {
@@ -70,14 +93,11 @@ async function listCards(headers) {
       visibility: "public",
       status: "published",
     });
-    const [result, countResult] = await Promise.all([
-      query.orderBy("createdAt", "desc").limit(48).get(),
-      query.count(),
-    ]);
-    const records = result.data || [];
+    const result = await query.orderBy("createdAt", "desc").limit(48).get();
+    const records = (result.data || []).filter((record) => record.cardType === "killer-license");
     const temporaryUrls = await getTemporaryUrls([...new Set(records.map((record) => record.fileID).filter(Boolean))]);
     return json(200, headers, {
-      total: countResult.total || records.length,
+      total: records.length,
       cards: records.map((record) => ({
         id: record._id,
         cardType: record.cardType,
@@ -101,22 +121,18 @@ function requireAdmin() {
 
 async function listAdminCards() {
   requireAdmin();
-  const result = await db.collection("card_creations")
-    .where({ film: "kill-bill" })
-    .orderBy("createdAt", "desc")
-    .limit(100)
-    .get();
-  const records = result.data || [];
+  const records = await listAllCardRecords();
   const temporaryUrls = await getTemporaryUrls([...new Set(records.map((record) => record.fileID).filter(Boolean))]);
   return {
     ok: true,
-    cards: records.filter((record) => record.source !== "bootstrap").map((record) => ({
+    cards: records.map((record) => ({
       id: record._id,
       cardType: record.cardType,
       displayName: record.displayName,
       image: temporaryUrls.get(record.fileID) || "",
       createdAt: record.createdAt,
       status: record.status === "hidden" ? "hidden" : "published",
+      visibility: record.visibility === "public" ? "public" : "private",
     })),
   };
 }
@@ -126,8 +142,49 @@ async function setCardStatus(event) {
   const id = cleanText(event.id, 128);
   const status = cleanText(event.status, 16);
   if (!id || !["published", "hidden"].includes(status)) throw new Error("作品状态参数不正确");
+  const result = await db.collection("card_creations").doc(id).get();
+  const record = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!record || record.visibility !== "public") throw new Error("用户选择不公开的小卡不能放上作品墙");
   await db.collection("card_creations").doc(id).update({ status });
   return { ok: true };
+}
+
+function safeArchiveName(value, fallback) {
+  const cleaned = cleanText(value, 32).replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, "-");
+  return cleaned || fallback;
+}
+
+async function exportCardImages() {
+  requireAdmin();
+  const records = await listAllCardRecords();
+  if (!records.length) throw new Error("现在还没有可以下载的用户小卡");
+
+  const zip = new JSZip();
+  for (let start = 0; start < records.length; start += 10) {
+    const batch = records.slice(start, start + 10);
+    const downloaded = await Promise.all(batch.map(async (record) => {
+      if (!record.fileID) return null;
+      const file = await cloud.downloadFile({ fileID: record.fileID });
+      return { record, fileContent: file.fileContent };
+    }));
+    for (let index = 0; index < downloaded.length; index += 1) {
+      const item = downloaded[index];
+      if (!item?.fileContent) continue;
+      const absoluteIndex = start + index + 1;
+      const date = new Date(item.record.createdAt || Date.now()).toISOString().slice(0, 10);
+      const name = safeArchiveName(item.record.displayName, "anonymous");
+      zip.file(`${String(absoluteIndex).padStart(4, "0")}-${date}-${name}.jpg`, item.fileContent);
+    }
+  }
+
+  const filename = `cosmosfilm-killer-licenses-${new Date().toISOString().slice(0, 10)}.zip`;
+  const fileContent = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  const cloudPath = `admin-exports/kill-bill/${Date.now()}-${crypto.randomUUID()}.zip`;
+  const upload = await cloud.uploadFile({ cloudPath, fileContent });
+  const temporaryUrls = await getTemporaryUrls([upload.fileID]);
+  const downloadUrl = temporaryUrls.get(upload.fileID);
+  if (!downloadUrl) throw new Error("下载包链接生成失败，请重试");
+  return { ok: true, downloadUrl, filename, count: records.length };
 }
 
 async function createCard(event, headers) {
@@ -143,10 +200,15 @@ async function createCard(event, headers) {
 
   const cardType = cleanText(payload.cardType, 32);
   const displayName = cleanText(payload.displayName, 32);
-  if (!allowedCardTypes.has(cardType) || !displayName) {
+  const visibility = cleanText(payload.visibility, 16);
+  const clientCreationId = cleanText(payload.clientCreationId, 64);
+  if (!allowedCardTypes.has(cardType) || !displayName || !clientCreationId || !["public", "private"].includes(visibility)) {
     return json(400, headers, { message: "作品类型或名字不正确" });
   }
-  if (payload.consentToPublish !== true) {
+  if (payload.consentToStore !== true) {
+    return json(400, headers, { message: "保存小卡前需要确认留档说明" });
+  }
+  if (visibility === "public" && payload.consentToPublish !== true) {
     return json(400, headers, { message: "公开展示前需要确认授权" });
   }
 
@@ -164,19 +226,50 @@ async function createCard(event, headers) {
   try {
     const upload = await cloud.uploadFile({ cloudPath, fileContent });
     const fileID = upload.fileID;
-    const created = await db.collection("card_creations").add({
-      film: "kill-bill",
-      issue: "02",
-      cardType,
-      displayName,
-      fileID,
-      visibility: "public",
-      status: "published",
-      createdAt: now,
-      source: "kill-bill-generator",
-    });
+    const existingResult = await db.collection("card_creations")
+      .where({ film: "kill-bill", clientCreationId })
+      .limit(1)
+      .get();
+    const existing = (existingResult.data || [])[0];
+    let id;
+    if (existing) {
+      const nextVisibility = existing.visibility === "public" || visibility === "public" ? "public" : "private";
+      const nextStatus = nextVisibility === "public"
+        ? (existing.visibility === "public" && existing.status === "hidden" ? "hidden" : "published")
+        : "hidden";
+      await db.collection("card_creations").doc(existing._id).update({
+        displayName,
+        fileID,
+        visibility: nextVisibility,
+        status: nextStatus,
+        updatedAt: now,
+      });
+      id = existing._id;
+      if (existing.fileID && existing.fileID !== fileID) {
+        try {
+          await cloud.deleteFile({ fileList: [existing.fileID] });
+        } catch (error) {
+          console.warn("old card image cleanup failed", error);
+        }
+      }
+    } else {
+      const created = await db.collection("card_creations").add({
+        film: "kill-bill",
+        issue: "02",
+        cardType,
+        displayName,
+        fileID,
+        visibility,
+        status: visibility === "public" ? "published" : "hidden",
+        createdAt: now,
+        updatedAt: now,
+        clientCreationId,
+        source: "kill-bill-generator",
+      });
+      id = created.id || created._id;
+    }
     const temporaryUrls = await getTemporaryUrls([fileID]);
-    return json(201, headers, { id: created.id || created._id, image: temporaryUrls.get(fileID) });
+    return json(existing ? 200 : 201, headers, { id, image: temporaryUrls.get(fileID), visibility });
   } catch (error) {
     console.error("card creation failed", error);
     return json(500, headers, { message: "作品暂时保存失败，请稍后再试" });
@@ -231,6 +324,14 @@ exports.main = async (event = {}) => {
     } catch (error) {
       console.error("card status update failed", error);
       return { ok: false, message: error instanceof Error ? error.message : "作品状态更新失败" };
+    }
+  }
+  if (!event.httpMethod && event.action === "export-card-images") {
+    try {
+      return await exportCardImages();
+    } catch (error) {
+      console.error("card image export failed", error);
+      return { ok: false, message: error instanceof Error ? error.message : "图片打包失败" };
     }
   }
 

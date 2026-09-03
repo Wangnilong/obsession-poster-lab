@@ -1,4 +1,5 @@
-export type KillBillCardType = "death-list" | "killer-license";
+export type KillBillCardType = "killer-license";
+export type CardVisibility = "public" | "private";
 
 export type PublicCardCreation = {
   id: string;
@@ -34,10 +35,12 @@ export async function loadPublicCardCreations(): Promise<{ cards: PublicCardCrea
   return readJson<{ cards: PublicCardCreation[]; total: number }>(response);
 }
 
-export async function publishCardCreation(input: {
+export async function saveCardCreation(input: {
   cardType: KillBillCardType;
   displayName: string;
   imageData: string;
+  visibility: CardVisibility;
+  clientCreationId: string;
 }) {
   const apiUrl = await loadPublicApiUrl();
   const endpoint = new URL(apiUrl);
@@ -47,7 +50,11 @@ export async function publishCardCreation(input: {
     response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ ...input, consentToPublish: true }),
+      body: JSON.stringify({
+        ...input,
+        consentToStore: true,
+        consentToPublish: input.visibility === "public",
+      }),
     });
   } catch {
     throw new Error("作品没有传上去，请检查网络后再试一次");
