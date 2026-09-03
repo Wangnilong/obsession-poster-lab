@@ -61,6 +61,10 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.ok(html.indexOf('id="community"') < html.indexOf('id="death-list"'));
   assert.match(source, /cardType: "death-list"/);
   assert.match(source, /visibility: "private"/);
+  assert.match(source, /按住照片拖动位置/);
+  assert.match(source, /恢复居中/);
+  assert.match(source, /onPointerMove={handlePhotoPointerMove}/);
+  assert.match(source, /drawImageCover\(context, photo, photoX, photoY, photoWidth, photoHeight, photoPosition\)/);
 });
 
 test("server-renders a poster-only screening archive index", async () => {

@@ -2,7 +2,15 @@
 
 /* eslint-disable @next/next/no-img-element, @next/next/no-html-link-for-pages -- portable static routes */
 
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import "@fontsource/shadows-into-light";
 import {
   canvasToShareImage,
@@ -21,6 +29,11 @@ const crossedNames = [
 const handFont = '"Caveat", "Segoe Print", "Bradley Hand", cursive';
 const thinHandFont = '"Shadows Into Light", "Segoe Print", cursive';
 const licenseSerif = '"Cooper Black", "Rockwell Extra Bold", Georgia, serif';
+type PhotoPosition = { x: number; y: number };
+
+function clampPhotoPosition(value: number) {
+  return Math.max(-1, Math.min(1, value));
+}
 
 function fitFont(
   context: CanvasRenderingContext2D,
@@ -309,12 +322,13 @@ function drawImageCover(
   y: number,
   width: number,
   height: number,
+  position: PhotoPosition = { x: 0, y: 0 },
 ) {
   const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
   const sourceWidth = width / scale;
   const sourceHeight = height / scale;
-  const sourceX = (image.naturalWidth - sourceWidth) / 2;
-  const sourceY = (image.naturalHeight - sourceHeight) / 2;
+  const sourceX = (image.naturalWidth - sourceWidth) * ((1 - position.x) / 2);
+  const sourceY = (image.naturalHeight - sourceHeight) * ((1 - position.y) / 2);
   context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
 }
 
@@ -402,6 +416,7 @@ function drawLicenseFront(
   name: string,
   alias: string,
   photo?: HTMLImageElement,
+  photoPosition: PhotoPosition = { x: 0, y: 0 },
 ) {
   const context = canvas.getContext("2d");
   if (!context) return;
@@ -428,7 +443,7 @@ function drawLicenseFront(
     context.beginPath();
     context.rect(photoX, photoY, photoWidth, photoHeight);
     context.clip();
-    drawImageCover(context, photo, photoX, photoY, photoWidth, photoHeight);
+    drawImageCover(context, photo, photoX, photoY, photoWidth, photoHeight, photoPosition);
     context.restore();
   } else {
     context.fillStyle = "rgba(26, 27, 20, 0.2)";
@@ -546,6 +561,9 @@ export default function KillBillGenerator() {
   const licenseBackRef = useRef<HTMLCanvasElement>(null);
   const licenseLogoRef = useRef<HTMLImageElement | null>(null);
   const licenseWordmarkRef = useRef<HTMLImageElement | null>(null);
+  const licensePhotoRef = useRef<HTMLImageElement | null>(null);
+  const photoPositionRef = useRef<PhotoPosition>({ x: 0, y: 0 });
+  const photoDragRef = useRef<{ pointerId: number; x: number; y: number; position: PhotoPosition } | null>(null);
   const deathListCreationRef = useRef<{ fingerprint: string; id: string } | null>(null);
   const licenseCreationRef = useRef<{ fingerprint: string; id: string } | null>(null);
   const [nameMode, setNameMode] = useState<"bill" | "custom">("bill");
@@ -553,6 +571,8 @@ export default function KillBillGenerator() {
   const [licenseName, setLicenseName] = useState("BEATRIX KIDDO");
   const [licenseAlias, setLicenseAlias] = useState("UMA THURMAN");
   const [photoUrl, setPhotoUrl] = useState("");
+  const [photoPosition, setPhotoPosition] = useState<PhotoPosition>({ x: 0, y: 0 });
+  const [isPhotoDragging, setIsPhotoDragging] = useState(false);
   const [photoError, setPhotoError] = useState("");
   const [communityCards, setCommunityCards] = useState<PublicCardCreation[]>([]);
   const [communityTotal, setCommunityTotal] = useState(0);
@@ -606,6 +626,7 @@ export default function KillBillGenerator() {
           (licenseName.trim() || "YOUR NAME").slice(0, 26),
           licenseAlias.slice(0, 24),
           photo,
+          photoPositionRef.current,
         );
       }
       if (licenseBackRef.current) drawLicenseBack(licenseBackRef.current, logo, wordmark);
@@ -631,11 +652,19 @@ export default function KillBillGenerator() {
         }
       }
       if (!photoUrl) {
+        licensePhotoRef.current = null;
         draw(undefined, logo, wordmark);
         return;
       }
+      if (licensePhotoRef.current) {
+        draw(licensePhotoRef.current, logo, wordmark);
+        return;
+      }
       const image = new Image();
-      image.onload = () => draw(image, logo, wordmark);
+      image.onload = () => {
+        licensePhotoRef.current = image;
+        draw(image, logo, wordmark);
+      };
       image.onerror = () => setPhotoError("这张图片无法读取，请换一张 JPG 或 PNG。");
       image.src = photoUrl;
     });
@@ -685,7 +714,83 @@ export default function KillBillGenerator() {
     }
     setPhotoError("");
     if (photoUrl) URL.revokeObjectURL(photoUrl);
+    licensePhotoRef.current = null;
+    photoPositionRef.current = { x: 0, y: 0 };
+    setPhotoPosition({ x: 0, y: 0 });
     setPhotoUrl(URL.createObjectURL(file));
+  };
+
+  const drawPhotoAt = (position: PhotoPosition) => {
+    if (!licenseFrontRef.current || !licensePhotoRef.current) return;
+    drawLicenseFront(
+      licenseFrontRef.current,
+      (licenseName.trim() || "YOUR NAME").slice(0, 26),
+      licenseAlias.slice(0, 24),
+      licensePhotoRef.current,
+      position,
+    );
+  };
+
+  const movePhotoTo = (position: PhotoPosition) => {
+    const next = {
+      x: clampPhotoPosition(position.x),
+      y: clampPhotoPosition(position.y),
+    };
+    photoPositionRef.current = next;
+    setPhotoPosition(next);
+    drawPhotoAt(next);
+  };
+
+  const handlePhotoPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!photoUrl || !licensePhotoRef.current) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    photoDragRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      position: photoPositionRef.current,
+    };
+    setIsPhotoDragging(true);
+  };
+
+  const handlePhotoPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = photoDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const deltaX = bounds.width ? ((event.clientX - drag.x) / bounds.width) * 2 : 0;
+    const deltaY = bounds.height ? ((event.clientY - drag.y) / bounds.height) * 2 : 0;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+    const next = {
+      x: clampPhotoPosition(drag.position.x + deltaX),
+      y: clampPhotoPosition(drag.position.y + deltaY),
+    };
+    drag.position = next;
+    movePhotoTo(next);
+  };
+
+  const handlePhotoPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (photoDragRef.current?.pointerId !== event.pointerId) return;
+    photoDragRef.current = null;
+    setIsPhotoDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const handlePhotoKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const movement = 0.08;
+    const delta = {
+      ArrowLeft: { x: -movement, y: 0 },
+      ArrowRight: { x: movement, y: 0 },
+      ArrowUp: { x: 0, y: -movement },
+      ArrowDown: { x: 0, y: movement },
+    }[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    movePhotoTo({ x: photoPosition.x + delta.x, y: photoPosition.y + delta.y });
   };
 
   const filenameName = (licenseName.trim() || "your-name").toLowerCase().replace(/\s+/g, "-");
@@ -861,6 +966,7 @@ export default function KillBillGenerator() {
             <span>{photoUrl ? "更换证件照" : "上传证件照"}</span>
             <input type="file" accept="image/*,.heic,.heif" onChange={handlePhoto} />
           </label>
+          {photoUrl ? <div className="kb-photo-position-help"><span>在右侧正面卡片里按住照片拖动位置</span><button type="button" onClick={() => movePhotoTo({ x: 0, y: 0 })}>恢复居中</button></div> : null}
           {photoError && <p className="kb-error" role="alert">{photoError}</p>}
           <div className="kb-download-row">
             <button className="kb-download" type="button" disabled={savingLicense !== null} onClick={() => void saveLicenseCard("front")}>
@@ -879,6 +985,18 @@ export default function KillBillGenerator() {
           <div className="kb-card-pair">
             <figure>
               <canvas ref={licenseFrontRef} width={1712} height={1080} aria-label={`Killer License 正面，姓名 ${licenseName}`} />
+              {photoUrl ? <div
+                className={`kb-photo-drag-layer${isPhotoDragging ? " is-dragging" : ""}`}
+                role="button"
+                tabIndex={0}
+                aria-label="拖动调整证件照位置，也可以使用方向键微调"
+                title="按住拖动照片"
+                onPointerDown={handlePhotoPointerDown}
+                onPointerMove={handlePhotoPointerMove}
+                onPointerUp={handlePhotoPointerEnd}
+                onPointerCancel={handlePhotoPointerEnd}
+                onKeyDown={handlePhotoKeyDown}
+              ><span>拖动照片</span></div> : null}
               <figcaption>FRONT / 正面</figcaption>
             </figure>
             <figure>

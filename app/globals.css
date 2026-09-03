@@ -5539,6 +5539,27 @@ a.cf42-archive-row:hover .cf42-archive-title em {
   color: #15130a;
 }
 
+.kb-photo-position-help {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  color: rgba(21, 19, 10, 0.72);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.kb-photo-position-help button {
+  flex: none;
+  padding: 5px 8px;
+  border: 1px solid rgba(8, 8, 6, 0.42);
+  color: #15130a;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
 .kb-license-maker .kb-download {
   border-color: #0b0a05;
   color: var(--kb-yellow);
@@ -5597,8 +5618,48 @@ a.cf42-archive-row:hover .cf42-archive-title em {
 }
 
 .kb-card-pair figure {
+  position: relative;
   min-width: 0;
   margin: 0;
+}
+
+.kb-photo-drag-layer {
+  position: absolute;
+  z-index: 4;
+  top: 37.407%;
+  left: 5.023%;
+  width: 23.949%;
+  aspect-ratio: 410 / 500;
+  display: grid;
+  place-items: end center;
+  padding: 8px;
+  border: 1px dashed rgba(244, 210, 30, 0.74);
+  outline: none;
+  background: rgba(244, 210, 30, 0.03);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.kb-photo-drag-layer span {
+  padding: 4px 7px;
+  color: #17130a;
+  background: rgba(244, 210, 30, 0.9);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: clamp(6px, 0.7vw, 9px);
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.kb-photo-drag-layer:hover,
+.kb-photo-drag-layer:focus-visible,
+.kb-photo-drag-layer.is-dragging {
+  border-style: solid;
+  background: rgba(244, 210, 30, 0.12);
+}
+
+.kb-photo-drag-layer.is-dragging {
+  cursor: grabbing;
 }
 
 .kb-card-pair figure:first-child {
