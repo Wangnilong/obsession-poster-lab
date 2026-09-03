@@ -162,8 +162,9 @@ function safeArchiveName(value, fallback) {
 
 async function exportCardImages(event) {
   requireAdmin();
-  const cardType = cleanText(event.cardType, 32);
-  if (!allowedCardTypes.has(cardType)) throw new Error("请选择要下载的作品模块");
+  const requestedCardType = cleanText(event.cardType, 32);
+  const cardType = requestedCardType || "killer-license";
+  if (!allowedCardTypes.has(cardType)) throw new Error("下载类型无效，请重新选择");
   const records = await listAllCardRecords(cardType);
   if (!records.length) throw new Error(cardType === "death-list" ? "现在还没有暗杀名单" : "现在还没有身份小卡");
 

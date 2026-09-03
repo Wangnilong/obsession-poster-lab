@@ -111,9 +111,10 @@ test("server-renders the protected content desk interface", async () => {
   const response = await render("/archive/admin");
   assert.equal(response.status, 200);
 
-  const [html, source] = await Promise.all([
+  const [html, source, cardAdminSource] = await Promise.all([
     response.text(),
     readFile(new URL("../app/archive-admin-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/card-creations-admin.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(html, /内容后台/);
   assert.match(html, /编辑登录/);
@@ -129,6 +130,7 @@ test("server-renders the protected content desk interface", async () => {
   assert.match(source, /玩家作品/);
   assert.match(source, /CardCreationsAdmin/);
   assert.match(source, /身份小卡与暗杀名单分模块统计并下载/);
+  assert.match(cardAdminSource, /下载类型/);
   assert.match(source, /CloudBase/);
   assert.match(source, /signInArchiveUser/);
   assert.match(source, /moveBlockTo/);
@@ -173,6 +175,8 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(archiveApi, /visibility === "public" \? "published" : "hidden"/);
   assert.match(archiveApi, /暗杀名单只允许后台留档/);
   assert.match(archiveApi, /exportCardImages/);
+  assert.match(archiveApi, /requestedCardType \|\| "killer-license"/);
+  assert.doesNotMatch(archiveApi, /请选择要下载的作品模块/);
   assert.match(archiveApi, /new JSZip/);
   assert.match(archiveApi, /adminUserIds/);
   assert.match(archiveApi, /requireAdmin/);

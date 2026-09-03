@@ -127,6 +127,13 @@ export default function CardCreationsAdmin({ role }: { role: ArchiveRole }) {
       <header>
         <div><span>{copy.eyebrow}</span><h2 id="community-admin-title">{copy.title}</h2><p>{copy.description}</p></div>
         <div className="archive-community-actions">
+          <label className="archive-community-download-kind">
+            <span>下载类型</span>
+            <select value={activeModule} onChange={(event) => { setActiveModule(event.currentTarget.value as CardModule); setMessage(""); }}>
+              <option value="killer-license">身份小卡</option>
+              <option value="death-list">暗杀名单</option>
+            </select>
+          </label>
           <button type="button" className="is-download" onClick={() => void downloadAll()} disabled={!visibleCards.length || downloadingAll}>{downloadingAll ? "正在打包…" : `一键下载全部${copy.noun}`}</button>
           <button type="button" onClick={() => void loadCards()} disabled={state === "loading"}>{state === "loading" ? "同步中…" : "刷新数据"}</button>
         </div>
