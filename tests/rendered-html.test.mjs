@@ -40,9 +40,10 @@ test("server-renders the Kill Bill artefact generators", async () => {
   const response = await render("/kill-bill");
   assert.equal(response.status, 200);
 
-  const [html, source] = await Promise.all([
+  const [html, source, css] = await Promise.all([
     response.text(),
     readFile(new URL("../app/kill-bill-generator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(html, /DEATH LIST FIVE/);
   assert.match(html, /暗杀名单/);
@@ -52,6 +53,7 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /上传证件照/);
   assert.match(html, /下载 A3 图片/);
   assert.match(html, /上传作品并展示到作品墙/);
+  assert.match(css, /\.kb-license-maker \.kb-license-share[\s\S]*background: #090906/);
   assert.match(html, /保存正面到手机/);
   assert.match(html, /保存背面到手机/);
   assert.match(html, /小卡正面和卡面姓名都会留存在管理员后台/);

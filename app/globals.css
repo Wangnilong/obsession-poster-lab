@@ -5605,8 +5605,16 @@ a.cf42-archive-row:hover .cf42-archive-title em {
 
 .kb-license-maker .kb-license-share {
   margin-top: 10px;
-  border-color: rgba(8, 8, 6, 0.7);
-  color: #15130a;
+  border-color: #090906;
+  color: var(--kb-yellow);
+  background: #090906;
+  box-shadow: 0 8px 0 rgba(143, 22, 13, 0.28);
+}
+
+.kb-license-maker .kb-license-share:hover:not(:disabled) {
+  color: #fff7bd;
+  background: #17150b;
+  transform: translateY(-2px);
 }
 
 .kb-card-pair {
