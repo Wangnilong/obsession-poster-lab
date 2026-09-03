@@ -928,7 +928,7 @@ export default function KillBillGenerator() {
             </button>
           </div>
           <button className="kb-share kb-license-share" type="button" disabled={savingLicense !== null} onClick={() => void saveLicenseCard("public")}>
-            {savingLicense === "public" ? "正在公开…" : "公开正面到作品墙"} <span>↗</span>
+            {savingLicense === "public" ? "正在上传…" : "上传作品并展示到作品墙"} <span>↗</span>
           </button>
           <small>无论保存到手机还是公开展示，小卡正面和卡面姓名都会留存在管理员后台；只有你主动选择公开，才会出现在作品墙。正反面均为 1712 × 1080 高清 PNG。</small>
         </div>

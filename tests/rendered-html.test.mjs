@@ -51,7 +51,7 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /杀手身份卡/);
   assert.match(html, /上传证件照/);
   assert.match(html, /下载 A3 图片/);
-  assert.match(html, /公开正面到作品墙/);
+  assert.match(html, /上传作品并展示到作品墙/);
   assert.match(html, /保存正面到手机/);
   assert.match(html, /保存背面到手机/);
   assert.match(html, /小卡正面和卡面姓名都会留存在管理员后台/);
