@@ -98,7 +98,7 @@ async function listCards(headers) {
       status: "published",
     });
     const result = await query.orderBy("createdAt", "desc").limit(48).get();
-    const records = (result.data || []).filter((record) => allowedCardTypes.has(record.cardType));
+    const records = (result.data || []).filter((record) => record.cardType === "killer-license");
     const temporaryUrls = await getTemporaryUrls([...new Set(records.map((record) => record.fileID).filter(Boolean))]);
     return json(200, headers, {
       total: records.length,
@@ -136,7 +136,7 @@ async function listAdminCards() {
       image: temporaryUrls.get(record.fileID) || "",
       createdAt: record.createdAt,
       status: record.status === "hidden" ? "hidden" : "published",
-      visibility: record.visibility === "public" ? "public" : "private",
+      visibility: record.cardType === "death-list" ? "private" : (record.visibility === "public" ? "public" : "private"),
     })),
   };
 }
@@ -247,8 +247,8 @@ async function createCard(event, headers) {
   if (payload.consentToStore === false) {
     return json(400, headers, { message: "保存作品前需要确认留档说明" });
   }
-  if (cardType === "death-list" && displayName.toUpperCase() === "BILL" && visibility !== "private") {
-    return json(400, headers, { message: "默认 BILL 名单只在后台留档，不会公开展示" });
+  if (cardType === "death-list" && visibility !== "private") {
+    return json(400, headers, { message: "暗杀名单只允许后台留档，不会公开展示" });
   }
   if (visibility === "public" && payload.consentToPublish !== true) {
     return json(400, headers, { message: "公开展示前需要确认授权" });

@@ -24,7 +24,7 @@ const moduleCopy: Record<CardModule, { eyebrow: string; title: string; descripti
   "death-list": {
     eyebrow: "DEATH LIST RECORDS",
     title: "暗杀名单",
-    description: "保存所有下载过的暗杀名单。默认 BILL 只在后台留档，自定义名字会进入作品墙；管理员可以隐藏或永久删除。",
+    description: "保存所有下载过的暗杀名单，供管理员查看、下载或删除。这个模块永远不会展示在公开作品墙。",
     noun: "暗杀名单",
   },
 };
@@ -76,7 +76,7 @@ export default function CardCreationsAdmin({ role }: { role: ArchiveRole }) {
     { label: "全部名单", value: visibleCards.length },
     { label: "目标为 BILL", value: visibleCards.filter((card) => card.displayName.trim().toUpperCase() === "BILL").length },
     { label: "自定义目标", value: visibleCards.filter((card) => card.displayName.trim().toUpperCase() !== "BILL").length },
-    { label: "作品墙展示", value: visibleCards.filter((card) => card.visibility === "public" && card.status === "published").length },
+    { label: "作品墙展示", value: 0 },
   ] : [
     { label: "全部小卡", value: visibleCards.length },
     { label: "公开展示", value: visibleCards.filter((card) => card.visibility === "public" && card.status === "published").length },
@@ -174,7 +174,7 @@ export default function CardCreationsAdmin({ role }: { role: ArchiveRole }) {
           return <article key={card.id} className={!isDeathList && card.visibility === "public" && card.status === "hidden" ? "is-hidden" : ""}>
             <div className={isDeathList ? "is-poster" : "is-license"}>{card.image ? <img src={card.image} alt={`${card.displayName} 的${isDeathList ? "暗杀名单" : "身份小卡"}`} /> : <span>图片链接已过期，点击刷新</span>}</div>
             <footer>
-              <span>{card.visibility === "public" ? (card.status === "published" ? "作品墙公开" : "管理员已隐藏") : isDeathList ? "默认 BILL · 仅后台保存" : "用户选择不公开"}</span>
+              <span>{isDeathList ? "仅后台保存" : card.visibility === "public" ? (card.status === "published" ? "作品墙公开" : "管理员已隐藏") : "用户选择不公开"}</span>
               <strong>{card.displayName}</strong>
               <time>{new Date(card.createdAt).toLocaleString("zh-CN")}</time>
               {card.image ? <a href={card.image} target="_blank" rel="noreferrer">下载此图</a> : null}

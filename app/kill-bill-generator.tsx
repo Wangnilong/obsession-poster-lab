@@ -806,7 +806,6 @@ export default function KillBillGenerator() {
     const canvas = deathListRef.current;
     if (!canvas || savingDeathList) return;
     const finalName = targetName.slice(0, 24);
-    const isDefaultBill = finalName.trim().toUpperCase() === "BILL";
     if (!deathListCreationRef.current || deathListCreationRef.current.fingerprint !== finalName) {
       deathListCreationRef.current = { fingerprint: finalName, id: crypto.randomUUID() };
     }
@@ -818,7 +817,7 @@ export default function KillBillGenerator() {
         cardType: "death-list",
         displayName: finalName,
         imageData: canvasToShareImage(canvas),
-        visibility: isDefaultBill ? "private" : "public",
+        visibility: "private",
         clientCreationId: deathListCreationRef.current.id,
       });
       downloadA3DeathList(
@@ -826,10 +825,7 @@ export default function KillBillGenerator() {
         deathListMasterRef.current ?? undefined,
         deathListBlankRef.current ?? undefined,
       );
-      setShareMessage(isDefaultBill
-        ? "默认 BILL 名单已保存到手机并记入后台，不会出现在作品墙。"
-        : "暗杀名单已保存到手机、记入后台并展示在作品墙。"
-      );
+      setShareMessage("暗杀名单已保存到手机并记入后台，不会出现在作品墙。");
     } catch (error) {
       setShareMessage(error instanceof Error ? error.message : "暗杀名单保存失败，请稍后再试。");
     } finally {
@@ -991,7 +987,7 @@ export default function KillBillGenerator() {
               {savingDeathList ? "正在保存…" : "下载 A3 图片"} <span>↓</span>
             </button>
           </div>
-          <small>下载时会自动在管理员后台留档。默认 BILL 不进作品墙，自定义名字会公开展示。下载文件为 A3 300DPI。</small>
+          <small>下载时会自动在管理员后台留档，但不会出现在玩家作品墙。下载文件为 A3 300DPI。</small>
         </div>
         <div className="kb-canvas-stage kb-paper-stage">
           <canvas ref={deathListRef} width={1200} height={1700} aria-label={`暗杀名单，第五个名字为 ${targetName}`} />
@@ -1003,7 +999,7 @@ export default function KillBillGenerator() {
           <div>
             <p>PLAYERS / COMMUNITY ARCHIVE</p>
             <h2 id="community-title">玩家作品</h2>
-            <span>展示公开身份小卡和自定义目标暗杀名单；默认 BILL 名单及私密小卡只在后台留档。</span>
+            <span>这里只展示用户主动公开的杀手身份卡；所有暗杀名单和私密小卡只在后台留档。</span>
           </div>
           <div className="kb-community-count"><strong>{communityTotal}</strong><span>份公开作品</span></div>
         </header>
