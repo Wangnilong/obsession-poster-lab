@@ -54,6 +54,7 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /下载 A3 图片/);
   assert.match(html, /下载并保存本地/);
   assert.match(html, /下载并展示到作品墙/);
+  assert.match(html, /两个操作都只下载正面/);
   assert.match(css, /\.kb-license-maker \.kb-license-share[\s\S]*background: #090906/);
   assert.doesNotMatch(html, /保存正面到手机/);
   assert.doesNotMatch(html, /保存背面到手机/);
@@ -71,6 +72,7 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(source, /恢复居中/);
   assert.match(source, /onPointerMove={handlePhotoPointerMove}/);
   assert.match(source, /drawImageCover\(context, photo, photoX, photoY, photoWidth, photoHeight, photoPosition\)/);
+  assert.doesNotMatch(source, /downloadCanvas\(licenseBackRef\.current/);
 });
 
 test("server-renders a poster-only screening archive index", async () => {

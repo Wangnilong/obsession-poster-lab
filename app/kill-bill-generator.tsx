@@ -858,12 +858,11 @@ export default function KillBillGenerator() {
         clientCreationId: licenseCreationRef.current.id,
       });
       downloadCanvas(frontCanvas, `killer-license-${filenameName}-front.png`);
-      downloadCanvas(licenseBackRef.current, `killer-license-${filenameName}-back.png`);
       if (visibility === "public") {
-        setShareMessage("正反面已下载，正面已展示到作品墙并记入后台。");
+        setShareMessage("正面已下载、展示到作品墙并记入后台。");
         await refreshCommunity();
       } else {
-        setShareMessage("正反面已下载并记入后台；这张小卡不会出现在作品墙。");
+        setShareMessage("正面已下载并记入后台；这张小卡不会出现在作品墙。");
       }
     } catch (error) {
       setShareMessage(error instanceof Error ? error.message : "作品保存失败，请稍后再试。");
@@ -904,7 +903,7 @@ export default function KillBillGenerator() {
         <div className="kb-maker-controls">
           <p>01 / THE KILLER LICENSE</p>
           <h2 id="license-title">杀手身份卡</h2>
-          <p className="kb-maker-intro">按实物版本重做：正面是照片、姓名与完整证件信息，背面只有巨大的 KILL BILL。每次操作都会下载完整正反面。</p>
+          <p className="kb-maker-intro">按实物版本重做：正面是照片、姓名与完整证件信息，背面只有巨大的 KILL BILL。下载时只保存正面。</p>
           <label className="kb-field">
             <span>卡面姓名</span>
             <input value={licenseName} maxLength={26} onChange={(event) => setLicenseName(event.target.value)} placeholder="BEATRIX KIDDO" />
@@ -927,7 +926,7 @@ export default function KillBillGenerator() {
               {savingLicense === "public" ? "正在上传…" : "下载并展示到作品墙"} <span>↗</span>
             </button>
           </div>
-          <small>两个操作都会同时下载正面和背面，并把正面与卡面姓名留存在管理员后台；只有选择展示，正面才会出现在作品墙。正反面均为 1712 × 1080 高清 PNG。</small>
+          <small>两个操作都只下载正面，并把正面与卡面姓名留存在管理员后台；只有选择展示，正面才会出现在作品墙。正面为 1712 × 1080 高清 PNG。</small>
         </div>
         <div className="kb-canvas-stage kb-card-stage">
           <div className="kb-card-pair">
