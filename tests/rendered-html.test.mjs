@@ -55,9 +55,12 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /保存正面到手机/);
   assert.match(html, /保存背面到手机/);
   assert.match(html, /小卡正面和卡面姓名都会留存在管理员后台/);
-  assert.match(html, /宇宙杀手档案/);
-  assert.match(html, /暗杀名单只在你的设备上生成和下载/);
-  assert.doesNotMatch(source, /shareCard\("death-list"/);
+  assert.match(html, /玩家作品/);
+  assert.match(html, /下载时会自动在管理员后台留档/);
+  assert.match(html, /暗杀名单和仅保存手机的小卡只在后台留档/);
+  assert.ok(html.indexOf('id="community"') < html.indexOf('id="death-list"'));
+  assert.match(source, /cardType: "death-list"/);
+  assert.match(source, /visibility: "private"/);
 });
 
 test("server-renders a poster-only screening archive index", async () => {
@@ -119,8 +122,9 @@ test("server-renders the protected content desk interface", async () => {
   assert.match(source, /图片墙预览/);
   assert.match(source, /现成工具/);
   assert.match(source, /只上传图片，不生成文章排版/);
-  assert.match(source, /用户作品/);
+  assert.match(source, /玩家作品/);
   assert.match(source, /CardCreationsAdmin/);
+  assert.match(source, /身份小卡与暗杀名单分模块统计并下载/);
   assert.match(source, /CloudBase/);
   assert.match(source, /signInArchiveUser/);
   assert.match(source, /moveBlockTo/);
@@ -148,6 +152,7 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(archiveClient, /action: "admin-cards"/);
   assert.match(archiveClient, /action: "set-card-status"/);
   assert.match(archiveClient, /action: "export-card-images"/);
+  assert.match(archiveClient, /cardType/);
   assert.match(cardClient, /consentToStore: true/);
   assert.match(cardClient, /consentToPublish: input\.visibility === "public"/);
   assert.match(cardClient, /canvasToShareImage/);
@@ -155,8 +160,10 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(cardClient, /maxDimension = Math\.floor\(maxDimension \* 0\.78\)/);
   assert.match(cardClient, /作品没有传上去/);
   assert.match(archiveApi, /collection\("card_creations"\)/);
+  assert.match(archiveApi, /allowedCardTypes = new Set\(\["death-list", "killer-license"\]\)/);
   assert.match(archiveApi, /visibility: "public"/);
   assert.match(archiveApi, /visibility === "public" \? "published" : "hidden"/);
+  assert.match(archiveApi, /暗杀名单只允许后台留档/);
   assert.match(archiveApi, /exportCardImages/);
   assert.match(archiveApi, /new JSZip/);
   assert.match(archiveApi, /adminUserIds/);

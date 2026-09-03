@@ -15,7 +15,7 @@ const allowedOrigins = new Set([
 ]);
 const allowedFilms = new Set(["obsession", "kill-bill"]);
 const allowedSections = new Set(["articles", "photos", "tools", "merch"]);
-const allowedCardTypes = new Set(["killer-license"]);
+const allowedCardTypes = new Set(["death-list", "killer-license"]);
 const adminUserIds = new Set([
   "2084617266415722497",
   "2084617281419927554",
@@ -67,7 +67,7 @@ async function getTemporaryUrls(fileIDs) {
   return temporaryUrls;
 }
 
-async function listAllCardRecords() {
+async function listAllCardRecords(cardType) {
   const records = [];
   const pageSize = 100;
   let offset = 0;
@@ -83,7 +83,11 @@ async function listAllCardRecords() {
     if (page.length < pageSize) break;
     offset += pageSize;
   }
-  return records.filter((record) => record.source !== "bootstrap" && record.cardType === "killer-license");
+  return records.filter((record) => (
+    record.source !== "bootstrap"
+    && allowedCardTypes.has(record.cardType)
+    && (!cardType || record.cardType === cardType)
+  ));
 }
 
 async function listCards(headers) {
@@ -132,7 +136,7 @@ async function listAdminCards() {
       image: temporaryUrls.get(record.fileID) || "",
       createdAt: record.createdAt,
       status: record.status === "hidden" ? "hidden" : "published",
-      visibility: record.visibility === "public" ? "public" : "private",
+      visibility: record.cardType === "death-list" ? "private" : (record.visibility === "public" ? "public" : "private"),
     })),
   };
 }
@@ -144,7 +148,9 @@ async function setCardStatus(event) {
   if (!id || !["published", "hidden"].includes(status)) throw new Error("作品状态参数不正确");
   const result = await db.collection("card_creations").doc(id).get();
   const record = Array.isArray(result.data) ? result.data[0] : result.data;
-  if (!record || record.visibility !== "public") throw new Error("用户选择不公开的小卡不能放上作品墙");
+  if (!record || record.cardType !== "killer-license" || record.visibility !== "public") {
+    throw new Error("只有用户主动公开的身份小卡可以调整作品墙状态");
+  }
   await db.collection("card_creations").doc(id).update({ status });
   return { ok: true };
 }
@@ -154,10 +160,12 @@ function safeArchiveName(value, fallback) {
   return cleaned || fallback;
 }
 
-async function exportCardImages() {
+async function exportCardImages(event) {
   requireAdmin();
-  const records = await listAllCardRecords();
-  if (!records.length) throw new Error("现在还没有可以下载的用户小卡");
+  const cardType = cleanText(event.cardType, 32);
+  if (!allowedCardTypes.has(cardType)) throw new Error("请选择要下载的作品模块");
+  const records = await listAllCardRecords(cardType);
+  if (!records.length) throw new Error(cardType === "death-list" ? "现在还没有暗杀名单" : "现在还没有身份小卡");
 
   const zip = new JSZip();
   for (let start = 0; start < records.length; start += 10) {
@@ -177,7 +185,8 @@ async function exportCardImages() {
     }
   }
 
-  const filename = `cosmosfilm-killer-licenses-${new Date().toISOString().slice(0, 10)}.zip`;
+  const exportLabel = cardType === "death-list" ? "death-lists" : "killer-licenses";
+  const filename = `cosmosfilm-${exportLabel}-${new Date().toISOString().slice(0, 10)}.zip`;
   const fileContent = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 6 } });
   const cloudPath = `admin-exports/kill-bill/${Date.now()}-${crypto.randomUUID()}.zip`;
   const upload = await cloud.uploadFile({ cloudPath, fileContent });
@@ -206,7 +215,10 @@ async function createCard(event, headers) {
     return json(400, headers, { message: "作品类型或名字不正确" });
   }
   if (payload.consentToStore !== true) {
-    return json(400, headers, { message: "保存小卡前需要确认留档说明" });
+    return json(400, headers, { message: "保存作品前需要确认留档说明" });
+  }
+  if (cardType === "death-list" && visibility !== "private") {
+    return json(400, headers, { message: "暗杀名单只允许后台留档，不会公开展示" });
   }
   if (visibility === "public" && payload.consentToPublish !== true) {
     return json(400, headers, { message: "公开展示前需要确认授权" });
@@ -328,7 +340,7 @@ exports.main = async (event = {}) => {
   }
   if (!event.httpMethod && event.action === "export-card-images") {
     try {
-      return await exportCardImages();
+      return await exportCardImages(event);
     } catch (error) {
       console.error("card image export failed", error);
       return { ok: false, message: error instanceof Error ? error.message : "图片打包失败" };

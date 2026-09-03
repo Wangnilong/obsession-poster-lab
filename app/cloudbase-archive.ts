@@ -7,7 +7,7 @@ export type ArchiveRole = "admin" | "photo-uploader";
 
 export type AdminCardCreation = {
   id: string;
-  cardType: "killer-license";
+  cardType: "death-list" | "killer-license";
   displayName: string;
   image: string;
   createdAt: number;
@@ -249,19 +249,19 @@ export async function setCardCreationStatus(role: ArchiveRole, id: string, statu
   if (!payload?.ok) throw new Error(payload?.message || "作品状态更新失败");
 }
 
-export async function downloadAllCardCreations(role: ArchiveRole) {
+export async function downloadAllCardCreations(role: ArchiveRole, cardType: AdminCardCreation["cardType"]) {
   if (role !== "admin") throw new Error("只有管理员可以下载用户作品");
   const app = await getArchiveApp();
   const response = await app.callFunction({
     name: "archive-api",
-    data: { action: "export-card-images" },
+    data: { action: "export-card-images", cardType },
     parse: true,
   });
   const payload = response.result as { ok?: boolean; downloadUrl?: string; filename?: string; count?: number; message?: string };
   if (!payload?.ok || !payload.downloadUrl) throw new Error(payload?.message || "图片打包失败");
   return {
     downloadUrl: payload.downloadUrl,
-    filename: payload.filename || "cosmosfilm-killer-licenses.zip",
+    filename: payload.filename || `cosmosfilm-${cardType}.zip`,
     count: payload.count ?? 0,
   };
 }

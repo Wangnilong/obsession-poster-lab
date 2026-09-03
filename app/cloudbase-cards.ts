@@ -1,4 +1,4 @@
-export type KillBillCardType = "killer-license";
+export type KillBillCardType = "death-list" | "killer-license";
 export type CardVisibility = "public" | "private";
 
 export type PublicCardCreation = {
