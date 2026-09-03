@@ -52,11 +52,12 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /杀手身份卡/);
   assert.match(html, /上传证件照/);
   assert.match(html, /下载 A3 图片/);
-  assert.match(html, /上传作品并展示到作品墙/);
+  assert.match(html, /下载并保存本地/);
+  assert.match(html, /下载并展示到作品墙/);
   assert.match(css, /\.kb-license-maker \.kb-license-share[\s\S]*background: #090906/);
-  assert.match(html, /保存正面到手机/);
-  assert.match(html, /保存背面到手机/);
-  assert.match(html, /小卡正面和卡面姓名都会留存在管理员后台/);
+  assert.doesNotMatch(html, /保存正面到手机/);
+  assert.doesNotMatch(html, /保存背面到手机/);
+  assert.match(html, /正面与卡面姓名留存在管理员后台/);
   assert.match(html, /玩家作品/);
   assert.match(html, /下载时会自动在管理员后台留档/);
   assert.match(html, /所有暗杀名单和私密小卡只在后台留档/);

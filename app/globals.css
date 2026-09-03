@@ -5604,7 +5604,8 @@ a.cf42-archive-row:hover .cf42-archive-title em {
 }
 
 .kb-license-maker .kb-license-share {
-  margin-top: 10px;
+  min-width: 0;
+  margin-top: 0;
   border-color: #090906;
   color: var(--kb-yellow);
   background: #090906;

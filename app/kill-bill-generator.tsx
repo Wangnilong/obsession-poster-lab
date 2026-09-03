@@ -578,7 +578,7 @@ export default function KillBillGenerator() {
   const [communityTotal, setCommunityTotal] = useState(0);
   const [communityState, setCommunityState] = useState<"loading" | "ready" | "error">("loading");
   const [savingDeathList, setSavingDeathList] = useState(false);
-  const [savingLicense, setSavingLicense] = useState<"front" | "back" | "public" | null>(null);
+  const [savingLicense, setSavingLicense] = useState<"local" | "public" | null>(null);
   const [shareMessage, setShareMessage] = useState("");
 
   const targetName = useMemo(
@@ -833,7 +833,7 @@ export default function KillBillGenerator() {
     }
   };
 
-  const saveLicenseCard = async (action: "front" | "back" | "public") => {
+  const saveLicenseCard = async (action: "local" | "public") => {
     const frontCanvas = licenseFrontRef.current;
     if (!frontCanvas || savingLicense) return;
     const visibility = action === "public" ? "public" : "private";
@@ -857,13 +857,13 @@ export default function KillBillGenerator() {
         visibility,
         clientCreationId: licenseCreationRef.current.id,
       });
-      if (action === "front") downloadCanvas(frontCanvas, `killer-license-${filenameName}-front.png`);
-      if (action === "back") downloadCanvas(licenseBackRef.current, `killer-license-${filenameName}-back.png`);
+      downloadCanvas(frontCanvas, `killer-license-${filenameName}-front.png`);
+      downloadCanvas(licenseBackRef.current, `killer-license-${filenameName}-back.png`);
       if (visibility === "public") {
-        setShareMessage("已公开展示，小卡也已自动记入后台。");
+        setShareMessage("正反面已下载，正面已展示到作品墙并记入后台。");
         await refreshCommunity();
       } else {
-        setShareMessage("已保存到手机并记入后台；这张小卡不会出现在作品墙。");
+        setShareMessage("正反面已下载并记入后台；这张小卡不会出现在作品墙。");
       }
     } catch (error) {
       setShareMessage(error instanceof Error ? error.message : "作品保存失败，请稍后再试。");
@@ -904,7 +904,7 @@ export default function KillBillGenerator() {
         <div className="kb-maker-controls">
           <p>01 / THE KILLER LICENSE</p>
           <h2 id="license-title">杀手身份卡</h2>
-          <p className="kb-maker-intro">按实物版本重做：正面是照片、姓名与完整证件信息，背面只有巨大的 KILL BILL。两面可以分别下载。</p>
+          <p className="kb-maker-intro">按实物版本重做：正面是照片、姓名与完整证件信息，背面只有巨大的 KILL BILL。每次操作都会下载完整正反面。</p>
           <label className="kb-field">
             <span>卡面姓名</span>
             <input value={licenseName} maxLength={26} onChange={(event) => setLicenseName(event.target.value)} placeholder="BEATRIX KIDDO" />
@@ -920,17 +920,14 @@ export default function KillBillGenerator() {
           {photoUrl ? <div className="kb-photo-position-help"><span>在右侧正面卡片里按住照片拖动位置</span><button type="button" onClick={() => movePhotoTo({ x: 0, y: 0 })}>恢复居中</button></div> : null}
           {photoError && <p className="kb-error" role="alert">{photoError}</p>}
           <div className="kb-download-row">
-            <button className="kb-download" type="button" disabled={savingLicense !== null} onClick={() => void saveLicenseCard("front")}>
-              {savingLicense === "front" ? "正在保存…" : "保存正面到手机"} <span>↓</span>
+            <button className="kb-download kb-download-secondary" type="button" disabled={savingLicense !== null} onClick={() => void saveLicenseCard("local")}>
+              {savingLicense === "local" ? "正在下载…" : "下载并保存本地"} <span>↓</span>
             </button>
-            <button className="kb-download kb-download-secondary" type="button" disabled={savingLicense !== null} onClick={() => void saveLicenseCard("back")}>
-              {savingLicense === "back" ? "正在保存…" : "保存背面到手机"} <span>↓</span>
+            <button className="kb-share kb-license-share" type="button" disabled={savingLicense !== null} onClick={() => void saveLicenseCard("public")}>
+              {savingLicense === "public" ? "正在上传…" : "下载并展示到作品墙"} <span>↗</span>
             </button>
           </div>
-          <button className="kb-share kb-license-share" type="button" disabled={savingLicense !== null} onClick={() => void saveLicenseCard("public")}>
-            {savingLicense === "public" ? "正在上传…" : "上传作品并展示到作品墙"} <span>↗</span>
-          </button>
-          <small>无论保存到手机还是公开展示，小卡正面和卡面姓名都会留存在管理员后台；只有你主动选择公开，才会出现在作品墙。正反面均为 1712 × 1080 高清 PNG。</small>
+          <small>两个操作都会同时下载正面和背面，并把正面与卡面姓名留存在管理员后台；只有选择展示，正面才会出现在作品墙。正反面均为 1712 × 1080 高清 PNG。</small>
         </div>
         <div className="kb-canvas-stage kb-card-stage">
           <div className="kb-card-pair">
