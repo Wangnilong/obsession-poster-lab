@@ -207,14 +207,25 @@ async function createCard(event, headers) {
     return json(400, headers, { message: "提交内容无法读取" });
   }
 
-  const cardType = cleanText(payload.cardType, 32);
-  const displayName = cleanText(payload.displayName, 32);
-  const visibility = cleanText(payload.visibility, 16);
-  const clientCreationId = cleanText(payload.clientCreationId, 64);
-  if (!allowedCardTypes.has(cardType) || !displayName || !clientCreationId || !["public", "private"].includes(visibility)) {
-    return json(400, headers, { message: "作品类型或名字不正确" });
+  const requestedCardType = cleanText(payload.cardType || payload.type, 32);
+  const cardType = !requestedCardType || ["id-card", "killer-card", "license"].includes(requestedCardType)
+    ? "killer-license"
+    : requestedCardType;
+  const displayName = cleanText(payload.displayName || payload.name, 32);
+  const requestedVisibility = cleanText(payload.visibility, 16);
+  const visibility = ["public", "private"].includes(requestedVisibility)
+    ? requestedVisibility
+    : (payload.consentToPublish === true ? "public" : "private");
+  const clientCreationId = cleanText(payload.clientCreationId, 64) || `legacy-${crypto.randomUUID()}`;
+  if (!allowedCardTypes.has(cardType)) {
+    console.warn("card submission rejected: unsupported type", { requestedCardType, origin });
+    return json(400, headers, { message: "网页版本较旧，请刷新后再保存一次" });
   }
-  if (payload.consentToStore !== true) {
+  if (!displayName) {
+    console.warn("card submission rejected: empty display name", { cardType, origin });
+    return json(400, headers, { message: "请先填写卡面姓名" });
+  }
+  if (payload.consentToStore === false) {
     return json(400, headers, { message: "保存作品前需要确认留档说明" });
   }
   if (cardType === "death-list" && visibility !== "private") {

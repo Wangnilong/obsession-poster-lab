@@ -161,6 +161,10 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(cardClient, /作品没有传上去/);
   assert.match(archiveApi, /collection\("card_creations"\)/);
   assert.match(archiveApi, /allowedCardTypes = new Set\(\["death-list", "killer-license"\]\)/);
+  assert.match(archiveApi, /\["id-card", "killer-card", "license"\]/);
+  assert.match(archiveApi, /legacy-\$\{crypto\.randomUUID\(\)\}/);
+  assert.match(archiveApi, /请先填写卡面姓名/);
+  assert.doesNotMatch(archiveApi, /作品类型或名字不正确/);
   assert.match(archiveApi, /visibility: "public"/);
   assert.match(archiveApi, /visibility === "public" \? "published" : "hidden"/);
   assert.match(archiveApi, /暗杀名单只允许后台留档/);
