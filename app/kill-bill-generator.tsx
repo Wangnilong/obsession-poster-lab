@@ -585,6 +585,13 @@ export default function KillBillGenerator() {
     () => (nameMode === "bill" ? "BILL" : customTarget.trim() || "YOUR NAME"),
     [customTarget, nameMode],
   );
+  const orderedCommunityCards = useMemo(
+    () => [...communityCards].sort((left, right) => {
+      if (left.cardType === right.cardType) return right.createdAt - left.createdAt;
+      return left.cardType === "killer-license" ? -1 : 1;
+    }),
+    [communityCards],
+  );
 
   useEffect(() => {
     let active = true;
@@ -889,73 +896,17 @@ export default function KillBillGenerator() {
           <h1 id="kb-title"><img src="/kill-bill/kill-bill-wordmark.png" alt="KILL BILL" /></h1>
           <strong>把第五个名字，换成你自己。</strong>
           <nav aria-label="生成器模式">
-            <a href="#community">玩家作品</a>
-            <a href="#death-list">暗杀名单</a>
             <a href="#id-card">Killer License</a>
+            <a href="#death-list">暗杀名单</a>
+            <a href="#community">玩家作品</a>
           </nav>
         </div>
         <span className="kb-hero-issue" aria-hidden="true">02</span>
       </section>
 
-      <section className="kb-community" id="community" aria-labelledby="community-title">
-        <header>
-          <div>
-            <p>PLAYERS / COMMUNITY ARCHIVE</p>
-            <h2 id="community-title">玩家作品</h2>
-            <span>展示公开身份小卡和自定义目标暗杀名单；默认 BILL 名单及私密小卡只在后台留档。</span>
-          </div>
-          <div className="kb-community-count"><strong>{communityTotal}</strong><span>份公开作品</span></div>
-        </header>
-        {communityState === "loading" ? <p className="kb-community-status">正在接收宇宙信号…</p> : null}
-        {communityState === "error" ? <div className="kb-community-status"><span>作品墙暂时没有连上。</span><button type="button" onClick={() => void refreshCommunity()}>重新连接</button></div> : null}
-        {communityState === "ready" && communityCards.length === 0 ? <div className="kb-community-empty"><span>NO RECORDS YET</span><strong>第一张卡，等你留下。</strong><a href="#id-card">开始制作 ↗</a></div> : null}
-        {communityCards.length ? <div className="kb-community-grid">
-          {communityCards.map((card, index) => <figure key={card.id} className={card.cardType === "death-list" ? "is-poster" : "is-license"}>
-            <div><img src={card.image} alt={`${card.displayName} 制作的${card.cardType === "death-list" ? "暗杀名单" : "杀手身份卡"}`} loading={index > 5 ? "lazy" : "eager"} /></div>
-            <figcaption><span>{card.cardType === "death-list" ? "DEATH LIST FIVE" : "KILLER LICENSE"}</span><strong>{card.displayName}</strong><time>{new Date(card.createdAt).toLocaleDateString("zh-CN")}</time></figcaption>
-          </figure>)}
-        </div> : null}
-      </section>
-
-      <section className="kb-maker kb-death-maker" id="death-list" aria-labelledby="death-title">
-        <div className="kb-maker-controls">
-          <p>01 / DEATH LIST FIVE</p>
-          <h2 id="death-title">暗杀名单</h2>
-          <p className="kb-maker-intro">前四个名字已经划掉。第五个目标，可以是 BILL，也可以不小心输入其他人的名字，也是情理之中。</p>
-          <div className="kb-segmented" aria-label="第五个名字模式">
-            <button type="button" className={nameMode === "bill" ? "active" : ""} onClick={() => setNameMode("bill")}>BILL</button>
-            <button type="button" className={nameMode === "custom" ? "active" : ""} onClick={() => setNameMode("custom")}>我的名字</button>
-          </div>
-          <label className={nameMode === "bill" ? "kb-field is-disabled" : "kb-field"}>
-            <span>第五个名字</span>
-            <input
-              value={customTarget}
-              maxLength={24}
-              disabled={nameMode === "bill"}
-              onChange={(event) => setCustomTarget(event.target.value)}
-              placeholder="输入你的名字"
-            />
-          </label>
-          <div className="kb-save-choice">
-            <button
-              className="kb-download"
-              type="button"
-              disabled={savingDeathList}
-              onClick={() => void saveDeathList()}
-            >
-              {savingDeathList ? "正在保存…" : "下载 A3 图片"} <span>↓</span>
-            </button>
-          </div>
-          <small>下载时会自动在管理员后台留档。默认 BILL 不进作品墙，自定义名字会公开展示。下载文件为 A3 300DPI。</small>
-        </div>
-        <div className="kb-canvas-stage kb-paper-stage">
-          <canvas ref={deathListRef} width={1200} height={1700} aria-label={`暗杀名单，第五个名字为 ${targetName}`} />
-        </div>
-      </section>
-
       <section className="kb-maker kb-license-maker" id="id-card" aria-labelledby="license-title">
         <div className="kb-maker-controls">
-          <p>02 / THE KILLER LICENSE</p>
+          <p>01 / THE KILLER LICENSE</p>
           <h2 id="license-title">杀手身份卡</h2>
           <p className="kb-maker-intro">按实物版本重做：正面是照片、姓名与完整证件信息，背面只有巨大的 KILL BILL。两面可以分别下载。</p>
           <label className="kb-field">
@@ -1009,6 +960,62 @@ export default function KillBillGenerator() {
             </figure>
           </div>
         </div>
+      </section>
+
+      <section className="kb-maker kb-death-maker" id="death-list" aria-labelledby="death-title">
+        <div className="kb-maker-controls">
+          <p>02 / DEATH LIST FIVE</p>
+          <h2 id="death-title">暗杀名单</h2>
+          <p className="kb-maker-intro">前四个名字已经划掉。第五个目标，可以是 BILL，也可以不小心输入其他人的名字，也是情理之中。</p>
+          <div className="kb-segmented" aria-label="第五个名字模式">
+            <button type="button" className={nameMode === "bill" ? "active" : ""} onClick={() => setNameMode("bill")}>BILL</button>
+            <button type="button" className={nameMode === "custom" ? "active" : ""} onClick={() => setNameMode("custom")}>我的名字</button>
+          </div>
+          <label className={nameMode === "bill" ? "kb-field is-disabled" : "kb-field"}>
+            <span>第五个名字</span>
+            <input
+              value={customTarget}
+              maxLength={24}
+              disabled={nameMode === "bill"}
+              onChange={(event) => setCustomTarget(event.target.value)}
+              placeholder="输入你的名字"
+            />
+          </label>
+          <div className="kb-save-choice">
+            <button
+              className="kb-download"
+              type="button"
+              disabled={savingDeathList}
+              onClick={() => void saveDeathList()}
+            >
+              {savingDeathList ? "正在保存…" : "下载 A3 图片"} <span>↓</span>
+            </button>
+          </div>
+          <small>下载时会自动在管理员后台留档。默认 BILL 不进作品墙，自定义名字会公开展示。下载文件为 A3 300DPI。</small>
+        </div>
+        <div className="kb-canvas-stage kb-paper-stage">
+          <canvas ref={deathListRef} width={1200} height={1700} aria-label={`暗杀名单，第五个名字为 ${targetName}`} />
+        </div>
+      </section>
+
+      <section className="kb-community" id="community" aria-labelledby="community-title">
+        <header>
+          <div>
+            <p>PLAYERS / COMMUNITY ARCHIVE</p>
+            <h2 id="community-title">玩家作品</h2>
+            <span>展示公开身份小卡和自定义目标暗杀名单；默认 BILL 名单及私密小卡只在后台留档。</span>
+          </div>
+          <div className="kb-community-count"><strong>{communityTotal}</strong><span>份公开作品</span></div>
+        </header>
+        {communityState === "loading" ? <p className="kb-community-status">正在接收宇宙信号…</p> : null}
+        {communityState === "error" ? <div className="kb-community-status"><span>作品墙暂时没有连上。</span><button type="button" onClick={() => void refreshCommunity()}>重新连接</button></div> : null}
+        {communityState === "ready" && communityCards.length === 0 ? <div className="kb-community-empty"><span>NO RECORDS YET</span><strong>第一张卡，等你留下。</strong><a href="#id-card">开始制作 ↗</a></div> : null}
+        {orderedCommunityCards.length ? <div className="kb-community-grid">
+          {orderedCommunityCards.map((card, index) => <figure key={card.id} className={card.cardType === "death-list" ? "is-poster" : "is-license"}>
+            <div><img src={card.image} alt={`${card.displayName} 制作的${card.cardType === "death-list" ? "暗杀名单" : "杀手身份卡"}`} loading={index > 5 ? "lazy" : "eager"} /></div>
+            <figcaption><span>{card.cardType === "death-list" ? "DEATH LIST FIVE" : "KILLER LICENSE"}</span><strong>{card.displayName}</strong><time>{new Date(card.createdAt).toLocaleDateString("zh-CN")}</time></figcaption>
+          </figure>)}
+        </div> : null}
       </section>
 
       <footer className="kb-footer">

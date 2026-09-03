@@ -58,7 +58,9 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /玩家作品/);
   assert.match(html, /下载时会自动在管理员后台留档/);
   assert.match(html, /默认 BILL 名单及私密小卡只在后台留档/);
-  assert.ok(html.indexOf('id="community"') < html.indexOf('id="death-list"'));
+  assert.ok(html.indexOf('id="id-card"') < html.indexOf('id="death-list"'));
+  assert.ok(html.indexOf('id="death-list"') < html.indexOf('id="community"'));
+  assert.match(source, /left\.cardType === "killer-license" \? -1 : 1/);
   assert.match(source, /cardType: "death-list"/);
   assert.match(source, /isDefaultBill \? "private" : "public"/);
   assert.match(source, /默认 BILL 不进作品墙/);
