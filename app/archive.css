@@ -438,6 +438,7 @@ a.archive-entry:focus-visible { transform: translateY(-4px); border-color: var(-
 .archive-community-admin-grid footer strong { min-width: 0; overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
 .archive-community-admin-grid footer time { grid-column: 2; grid-row: 1 / span 2; color: #8a877f; font-size: 8px; }
 .archive-community-admin-grid footer button { grid-column: 1 / -1; min-height: 34px; margin-top: 6px; color: #f4f1e9; cursor: pointer; background: #262522; border: 0; font-size: 9px; }
+.archive-community-admin-grid footer button.is-delete { color: #fff; background: var(--workspace-red); }
 .archive-community-admin-grid footer button:disabled { cursor: wait; opacity: .5; }
 .archive-community-admin-grid footer a { color: var(--workspace-red); font-size: 9px; font-weight: 900; text-decoration: none; }
 .archive-community-admin-grid footer p { grid-column: 1 / -1; margin: 6px 0 0; padding: 10px; color: #74716a; background: #e9e7e0; font-size: 9px; text-align: center; }

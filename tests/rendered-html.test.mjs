@@ -57,10 +57,11 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.match(html, /小卡正面和卡面姓名都会留存在管理员后台/);
   assert.match(html, /玩家作品/);
   assert.match(html, /下载时会自动在管理员后台留档/);
-  assert.match(html, /暗杀名单和仅保存手机的小卡只在后台留档/);
+  assert.match(html, /默认 BILL 名单及私密小卡只在后台留档/);
   assert.ok(html.indexOf('id="community"') < html.indexOf('id="death-list"'));
   assert.match(source, /cardType: "death-list"/);
-  assert.match(source, /visibility: "private"/);
+  assert.match(source, /isDefaultBill \? "private" : "public"/);
+  assert.match(source, /默认 BILL 不进作品墙/);
   assert.match(source, /按住照片拖动位置/);
   assert.match(source, /恢复居中/);
   assert.match(source, /onPointerMove={handlePhotoPointerMove}/);
@@ -131,6 +132,7 @@ test("server-renders the protected content desk interface", async () => {
   assert.match(source, /CardCreationsAdmin/);
   assert.match(source, /身份小卡与暗杀名单分模块统计并下载/);
   assert.match(cardAdminSource, /下载类型/);
+  assert.match(cardAdminSource, /永久删除/);
   assert.match(source, /CloudBase/);
   assert.match(source, /signInArchiveUser/);
   assert.match(source, /moveBlockTo/);
@@ -157,6 +159,7 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(archiveClient, /loadAdminCardCreations/);
   assert.match(archiveClient, /action: "admin-cards"/);
   assert.match(archiveClient, /action: "set-card-status"/);
+  assert.match(archiveClient, /action: "delete-card"/);
   assert.match(archiveClient, /action: "export-card-images"/);
   assert.match(archiveClient, /cardType/);
   assert.match(cardClient, /consentToStore: true/);
@@ -173,9 +176,11 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.doesNotMatch(archiveApi, /作品类型或名字不正确/);
   assert.match(archiveApi, /visibility: "public"/);
   assert.match(archiveApi, /visibility === "public" \? "published" : "hidden"/);
-  assert.match(archiveApi, /暗杀名单只允许后台留档/);
+  assert.match(archiveApi, /默认 BILL 名单只在后台留档/);
   assert.match(archiveApi, /exportCardImages/);
   assert.match(archiveApi, /requestedCardType \|\| "killer-license"/);
+  assert.match(archiveApi, /event\.action === "delete-card"/);
+  assert.match(archiveApi, /displayName\.toUpperCase\(\) === "BILL"/);
   assert.doesNotMatch(archiveApi, /请选择要下载的作品模块/);
   assert.match(archiveApi, /new JSZip/);
   assert.match(archiveApi, /adminUserIds/);

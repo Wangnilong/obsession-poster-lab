@@ -249,6 +249,18 @@ export async function setCardCreationStatus(role: ArchiveRole, id: string, statu
   if (!payload?.ok) throw new Error(payload?.message || "作品状态更新失败");
 }
 
+export async function deleteCardCreation(role: ArchiveRole, id: string) {
+  if (role !== "admin") throw new Error("只有管理员可以删除用户作品");
+  const app = await getArchiveApp();
+  const response = await app.callFunction({
+    name: "archive-api",
+    data: { action: "delete-card", id },
+    parse: true,
+  });
+  const payload = response.result as { ok?: boolean; message?: string };
+  if (!payload?.ok) throw new Error(payload?.message || "作品删除失败");
+}
+
 export async function downloadAllCardCreations(role: ArchiveRole, cardType: AdminCardCreation["cardType"]) {
   if (role !== "admin") throw new Error("只有管理员可以下载用户作品");
   const app = await getArchiveApp();

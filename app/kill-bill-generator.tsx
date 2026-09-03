@@ -799,6 +799,7 @@ export default function KillBillGenerator() {
     const canvas = deathListRef.current;
     if (!canvas || savingDeathList) return;
     const finalName = targetName.slice(0, 24);
+    const isDefaultBill = finalName.trim().toUpperCase() === "BILL";
     if (!deathListCreationRef.current || deathListCreationRef.current.fingerprint !== finalName) {
       deathListCreationRef.current = { fingerprint: finalName, id: crypto.randomUUID() };
     }
@@ -810,7 +811,7 @@ export default function KillBillGenerator() {
         cardType: "death-list",
         displayName: finalName,
         imageData: canvasToShareImage(canvas),
-        visibility: "private",
+        visibility: isDefaultBill ? "private" : "public",
         clientCreationId: deathListCreationRef.current.id,
       });
       downloadA3DeathList(
@@ -818,7 +819,10 @@ export default function KillBillGenerator() {
         deathListMasterRef.current ?? undefined,
         deathListBlankRef.current ?? undefined,
       );
-      setShareMessage("暗杀名单已保存到手机并记入后台，不会出现在作品墙。");
+      setShareMessage(isDefaultBill
+        ? "默认 BILL 名单已保存到手机并记入后台，不会出现在作品墙。"
+        : "暗杀名单已保存到手机、记入后台并展示在作品墙。"
+      );
     } catch (error) {
       setShareMessage(error instanceof Error ? error.message : "暗杀名单保存失败，请稍后再试。");
     } finally {
@@ -898,7 +902,7 @@ export default function KillBillGenerator() {
           <div>
             <p>PLAYERS / COMMUNITY ARCHIVE</p>
             <h2 id="community-title">玩家作品</h2>
-            <span>这里只展示用户主动公开的身份小卡；暗杀名单和仅保存手机的小卡只在后台留档。</span>
+            <span>展示公开身份小卡和自定义目标暗杀名单；默认 BILL 名单及私密小卡只在后台留档。</span>
           </div>
           <div className="kb-community-count"><strong>{communityTotal}</strong><span>份公开作品</span></div>
         </header>
@@ -906,9 +910,9 @@ export default function KillBillGenerator() {
         {communityState === "error" ? <div className="kb-community-status"><span>作品墙暂时没有连上。</span><button type="button" onClick={() => void refreshCommunity()}>重新连接</button></div> : null}
         {communityState === "ready" && communityCards.length === 0 ? <div className="kb-community-empty"><span>NO RECORDS YET</span><strong>第一张卡，等你留下。</strong><a href="#id-card">开始制作 ↗</a></div> : null}
         {communityCards.length ? <div className="kb-community-grid">
-          {communityCards.map((card, index) => <figure key={card.id} className="is-license">
-            <div><img src={card.image} alt={`${card.displayName} 制作的杀手身份卡`} loading={index > 5 ? "lazy" : "eager"} /></div>
-            <figcaption><span>KILLER LICENSE</span><strong>{card.displayName}</strong><time>{new Date(card.createdAt).toLocaleDateString("zh-CN")}</time></figcaption>
+          {communityCards.map((card, index) => <figure key={card.id} className={card.cardType === "death-list" ? "is-poster" : "is-license"}>
+            <div><img src={card.image} alt={`${card.displayName} 制作的${card.cardType === "death-list" ? "暗杀名单" : "杀手身份卡"}`} loading={index > 5 ? "lazy" : "eager"} /></div>
+            <figcaption><span>{card.cardType === "death-list" ? "DEATH LIST FIVE" : "KILLER LICENSE"}</span><strong>{card.displayName}</strong><time>{new Date(card.createdAt).toLocaleDateString("zh-CN")}</time></figcaption>
           </figure>)}
         </div> : null}
       </section>
@@ -942,7 +946,7 @@ export default function KillBillGenerator() {
               {savingDeathList ? "正在保存…" : "下载 A3 图片"} <span>↓</span>
             </button>
           </div>
-          <small>下载时会自动在管理员后台留档，但不会出现在玩家作品墙。下载文件为 A3 300DPI。</small>
+          <small>下载时会自动在管理员后台留档。默认 BILL 不进作品墙，自定义名字会公开展示。下载文件为 A3 300DPI。</small>
         </div>
         <div className="kb-canvas-stage kb-paper-stage">
           <canvas ref={deathListRef} width={1200} height={1700} aria-label={`暗杀名单，第五个名字为 ${targetName}`} />

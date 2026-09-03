@@ -98,7 +98,7 @@ async function listCards(headers) {
       status: "published",
     });
     const result = await query.orderBy("createdAt", "desc").limit(48).get();
-    const records = (result.data || []).filter((record) => record.cardType === "killer-license");
+    const records = (result.data || []).filter((record) => allowedCardTypes.has(record.cardType));
     const temporaryUrls = await getTemporaryUrls([...new Set(records.map((record) => record.fileID).filter(Boolean))]);
     return json(200, headers, {
       total: records.length,
@@ -136,7 +136,7 @@ async function listAdminCards() {
       image: temporaryUrls.get(record.fileID) || "",
       createdAt: record.createdAt,
       status: record.status === "hidden" ? "hidden" : "published",
-      visibility: record.cardType === "death-list" ? "private" : (record.visibility === "public" ? "public" : "private"),
+      visibility: record.visibility === "public" ? "public" : "private",
     })),
   };
 }
@@ -148,10 +148,28 @@ async function setCardStatus(event) {
   if (!id || !["published", "hidden"].includes(status)) throw new Error("作品状态参数不正确");
   const result = await db.collection("card_creations").doc(id).get();
   const record = Array.isArray(result.data) ? result.data[0] : result.data;
-  if (!record || record.cardType !== "killer-license" || record.visibility !== "public") {
-    throw new Error("只有用户主动公开的身份小卡可以调整作品墙状态");
+  if (!record || !allowedCardTypes.has(record.cardType) || record.visibility !== "public") {
+    throw new Error("只有公开作品可以调整作品墙状态");
   }
   await db.collection("card_creations").doc(id).update({ status });
+  return { ok: true };
+}
+
+async function deleteCard(event) {
+  requireAdmin();
+  const id = cleanText(event.id, 128);
+  if (!id) throw new Error("没有找到要删除的作品");
+  const result = await db.collection("card_creations").doc(id).get();
+  const record = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!record || !allowedCardTypes.has(record.cardType)) throw new Error("作品不存在或已被删除");
+  await db.collection("card_creations").doc(id).remove();
+  if (record.fileID) {
+    try {
+      await cloud.deleteFile({ fileList: [record.fileID] });
+    } catch (error) {
+      console.warn("deleted card image cleanup failed", error);
+    }
+  }
   return { ok: true };
 }
 
@@ -229,8 +247,8 @@ async function createCard(event, headers) {
   if (payload.consentToStore === false) {
     return json(400, headers, { message: "保存作品前需要确认留档说明" });
   }
-  if (cardType === "death-list" && visibility !== "private") {
-    return json(400, headers, { message: "暗杀名单只允许后台留档，不会公开展示" });
+  if (cardType === "death-list" && displayName.toUpperCase() === "BILL" && visibility !== "private") {
+    return json(400, headers, { message: "默认 BILL 名单只在后台留档，不会公开展示" });
   }
   if (visibility === "public" && payload.consentToPublish !== true) {
     return json(400, headers, { message: "公开展示前需要确认授权" });
@@ -348,6 +366,14 @@ exports.main = async (event = {}) => {
     } catch (error) {
       console.error("card status update failed", error);
       return { ok: false, message: error instanceof Error ? error.message : "作品状态更新失败" };
+    }
+  }
+  if (!event.httpMethod && event.action === "delete-card") {
+    try {
+      return await deleteCard(event);
+    } catch (error) {
+      console.error("card deletion failed", error);
+      return { ok: false, message: error instanceof Error ? error.message : "作品删除失败" };
     }
   }
   if (!event.httpMethod && event.action === "export-card-images") {

@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  deleteCardCreation,
   downloadAllCardCreations,
   loadAdminCardCreations,
   setCardCreationStatus,
@@ -23,7 +24,7 @@ const moduleCopy: Record<CardModule, { eyebrow: string; title: string; descripti
   "death-list": {
     eyebrow: "DEATH LIST RECORDS",
     title: "暗杀名单",
-    description: "保存所有下载过的暗杀名单，供管理员查看与统一下载。这个模块永远不会展示在公开作品墙。",
+    description: "保存所有下载过的暗杀名单。默认 BILL 只在后台留档，自定义名字会进入作品墙；管理员可以隐藏或永久删除。",
     noun: "暗杀名单",
   },
 };
@@ -75,7 +76,7 @@ export default function CardCreationsAdmin({ role }: { role: ArchiveRole }) {
     { label: "全部名单", value: visibleCards.length },
     { label: "目标为 BILL", value: visibleCards.filter((card) => card.displayName.trim().toUpperCase() === "BILL").length },
     { label: "自定义目标", value: visibleCards.filter((card) => card.displayName.trim().toUpperCase() !== "BILL").length },
-    { label: "作品墙展示", value: 0 },
+    { label: "作品墙展示", value: visibleCards.filter((card) => card.visibility === "public" && card.status === "published").length },
   ] : [
     { label: "全部小卡", value: visibleCards.length },
     { label: "公开展示", value: visibleCards.filter((card) => card.visibility === "public" && card.status === "published").length },
@@ -84,7 +85,7 @@ export default function CardCreationsAdmin({ role }: { role: ArchiveRole }) {
   ], [activeModule, visibleCards]);
 
   const changeStatus = async (card: AdminCardCreation) => {
-    if (card.cardType !== "killer-license" || card.visibility !== "public") return;
+    if (card.visibility !== "public") return;
     const nextStatus = card.status === "published" ? "hidden" : "published";
     setChangingId(card.id);
     setMessage("");
@@ -94,6 +95,22 @@ export default function CardCreationsAdmin({ role }: { role: ArchiveRole }) {
       setMessage(nextStatus === "hidden" ? "作品已从公开墙隐藏，后台记录仍然保留。" : "作品已恢复公开展示。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "操作失败，请稍后再试");
+    } finally {
+      setChangingId(null);
+    }
+  };
+
+  const deleteCard = async (card: AdminCardCreation) => {
+    const confirmed = window.confirm(`确定永久删除“${card.displayName}”的${moduleCopy[card.cardType].noun}吗？图片和后台记录都会删除，无法恢复。`);
+    if (!confirmed) return;
+    setChangingId(card.id);
+    setMessage("");
+    try {
+      await deleteCardCreation(role, card.id);
+      setCards((current) => current.filter((item) => item.id !== card.id));
+      setMessage("作品及对应图片已永久删除。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "删除失败，请稍后再试");
     } finally {
       setChangingId(null);
     }
@@ -157,11 +174,12 @@ export default function CardCreationsAdmin({ role }: { role: ArchiveRole }) {
           return <article key={card.id} className={!isDeathList && card.visibility === "public" && card.status === "hidden" ? "is-hidden" : ""}>
             <div className={isDeathList ? "is-poster" : "is-license"}>{card.image ? <img src={card.image} alt={`${card.displayName} 的${isDeathList ? "暗杀名单" : "身份小卡"}`} /> : <span>图片链接已过期，点击刷新</span>}</div>
             <footer>
-              <span>{isDeathList ? "仅后台保存" : card.visibility === "public" ? (card.status === "published" ? "作品墙公开" : "管理员已隐藏") : "用户选择不公开"}</span>
+              <span>{card.visibility === "public" ? (card.status === "published" ? "作品墙公开" : "管理员已隐藏") : isDeathList ? "默认 BILL · 仅后台保存" : "用户选择不公开"}</span>
               <strong>{card.displayName}</strong>
               <time>{new Date(card.createdAt).toLocaleString("zh-CN")}</time>
               {card.image ? <a href={card.image} target="_blank" rel="noreferrer">下载此图</a> : null}
-              {isDeathList ? <p>不展示到作品墙</p> : card.visibility === "public" ? <button type="button" disabled={changingId === card.id} onClick={() => void changeStatus(card)}>{changingId === card.id ? "处理中…" : card.status === "published" ? "从作品墙隐藏" : "恢复公开展示"}</button> : <p>仅后台可见</p>}
+              {card.visibility === "public" ? <button type="button" disabled={changingId === card.id} onClick={() => void changeStatus(card)}>{changingId === card.id ? "处理中…" : card.status === "published" ? "从作品墙隐藏" : "恢复公开展示"}</button> : <p>仅后台可见</p>}
+              <button className="is-delete" type="button" disabled={changingId === card.id} onClick={() => void deleteCard(card)}>{changingId === card.id ? "处理中…" : "永久删除"}</button>
             </footer>
           </article>;
         })}
