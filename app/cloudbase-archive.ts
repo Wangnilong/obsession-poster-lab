@@ -1,6 +1,6 @@
 import type { ArchiveEntry, ArchiveLayoutBlock, ArchiveSection } from "./archive-data";
 
-type CloudBaseSdk = (typeof import("@cloudbase/js-sdk"))["default"];
+type CloudBaseSdk = typeof import("@cloudbase/js-sdk");
 type CloudBaseApp = ReturnType<CloudBaseSdk["init"]>;
 
 export type ArchiveRole = "admin" | "photo-uploader";
@@ -22,7 +22,7 @@ type CloudBaseConfig = {
   adminUrl?: string;
 };
 
-type PublishedArchiveRecord = {
+export type PublishedArchiveRecord = {
   _id?: string;
   film: string;
   section: ArchiveSection;
@@ -36,7 +36,12 @@ type PublishedArchiveRecord = {
   layout?: ArchiveLayoutBlock[];
   createdAt: number;
   createdBy: string;
-  status: "published";
+  status: "published" | "draft" | "hidden";
+  articleHtml?: string;
+  updatedAt?: number;
+  pendingHtml?: string;
+  pendingTitle?: string;
+  pendingCopy?: string;
 };
 
 export type ArchivePublishBlock =
@@ -222,6 +227,57 @@ export async function loadArchiveContent(film: string, section: ArchiveSection):
   } catch {
     return [];
   }
+}
+
+export async function uploadArchiveImage(file: File, film: string, section: ArchiveSection) {
+  if (!file.type.startsWith("image/")) throw new Error("请选择图片文件");
+  if (file.size > 20 * 1024 * 1024) throw new Error(`${file.name} 超过 20 MB，请压缩后再上传`);
+  const app = await getArchiveApp();
+  const result = await app.uploadFile({ cloudPath: `archive/${film}/${section}/${safeFileName(file.name)}`, filePath: file as unknown as string });
+  const urls = await app.getTempFileURL({ fileList: [result.fileID] });
+  const url = urls.fileList?.[0]?.tempFileURL;
+  if (!url) throw new Error("图片链接获取失败，请重试");
+  return { fileID: result.fileID, url };
+}
+
+export async function listEditorContent(film: string, section: ArchiveSection, role: ArchiveRole): Promise<PublishedArchiveRecord[]> {
+  if (role !== "admin" && section !== "photos") throw new Error("此账号只允许查看映后图片");
+  const app = await getArchiveApp();
+  const records: PublishedArchiveRecord[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const result = await editorRequest<{ records: PublishedArchiveRecord[] }>("editor-list", { film, section, offset });
+    const page = result.records;
+    records.push(...page);
+    if (page.length < 100) break;
+  }
+  const ids = [...new Set(records.flatMap(record => [record.fileID, ...(record.layout || []).map(block => block.type === "image" ? block.fileID : undefined), ...Array.from(((record.articleHtml || "") + (record.pendingHtml || "")).matchAll(/data-file-id="([^"]+)"/g), match => match[1])]).filter((id): id is string => Boolean(id)))];
+  const urls = new Map<string, string>();
+  for (let start = 0; start < ids.length; start += 50) {
+    const result = await app.getTempFileURL({ fileList: ids.slice(start, start + 50) });
+    result.fileList?.forEach(file => { if (file.tempFileURL) urls.set(file.fileID, file.tempFileURL); });
+  }
+  return records.map(record => ({ ...record,
+    layout: [ ...(record.fileID ? [{ type: "image" as const, fileID: record.fileID, image: urls.get(record.fileID), alt: record.imageAlt }] : []), ...(record.layout || []).map(block => block.type === "image" ? { ...block, image: block.fileID ? urls.get(block.fileID) : block.image } : block)],
+    articleHtml: record.articleHtml?.replace(/<img\b[^>]*>/g, tag => { const id = /data-file-id="([^"]+)"/.exec(tag)?.[1]; return id && urls.has(id) ? tag.replace(/\ssrc="[^"]*"/, ` src="${urls.get(id)!.replace(/&/g, "&amp;")}"`) : tag; }),
+    pendingHtml: record.pendingHtml?.replace(/<img\b[^>]*>/g, tag => { const id = /data-file-id="([^"]+)"/.exec(tag)?.[1]; return id && urls.has(id) ? tag.replace(/\ssrc="[^"]*"/, ` src="${urls.get(id)!.replace(/&/g, "&amp;")}"`) : tag; }),
+  }));
+}
+
+async function editorRequest<T>(action: string, data: object): Promise<T> {
+  const app = await getArchiveApp();
+  const result = await app.callFunction({ name: "archive-api", data: { action, ...data }, parse: true });
+  const payload = result.result as T & { ok?: boolean; message?: string };
+  if (!payload?.ok) throw new Error(payload?.message || "操作失败，请重试");
+  return payload;
+}
+
+export async function saveEditorContent(record: PublishedArchiveRecord, role: ArchiveRole) {
+  if (role !== "admin" && (record.section !== "photos" || record._id)) throw new Error("此账号只允许上传映后图片");
+  return (await editorRequest<{ id: string }>("editor-save", { record: JSON.parse(JSON.stringify(record)) })).id;
+}
+
+export async function hideEditorContent(id: string) {
+  await editorRequest("editor-hide", { id });
 }
 
 export async function loadAdminCardCreations(role: ArchiveRole): Promise<AdminCardCreation[]> {

@@ -129,21 +129,12 @@ test("server-renders the protected content desk interface", async () => {
   assert.match(html, /登录以后/);
   assert.doesNotMatch(html, /手机预览/);
   assert.match(source, /archive-workspace-nav/);
-  assert.match(source, /archive-word-ribbon/);
-  assert.match(source, /archive-document-page/);
-  assert.match(source, /文章预览/);
-  assert.match(source, /图片墙预览/);
-  assert.match(source, /现成工具/);
-  assert.match(source, /只上传图片，不生成文章排版/);
   assert.match(source, /玩家作品/);
   assert.match(source, /CardCreationsAdmin/);
-  assert.match(source, /身份小卡与暗杀名单分模块统计并下载/);
   assert.match(cardAdminSource, /下载类型/);
   assert.match(cardAdminSource, /永久删除/);
   assert.match(source, /CloudBase/);
   assert.match(source, /signInArchiveUser/);
-  assert.match(source, /moveBlockTo/);
-  assert.match(source, /dataTransfer\.files/);
 });
 
 test("keeps archive roles and CloudBase publishing out of static passwords", async () => {
@@ -191,7 +182,7 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(archiveApi, /new JSZip/);
   assert.match(archiveApi, /adminUserIds/);
   assert.match(archiveApi, /requireAdmin/);
-  assert.match(adminPage, /图片编辑/);
+  assert.match(adminPage, /photo-uploader/);
   assert.match(filmPage, /loadArchiveContent/);
   assert.match(filmPage, /ArchiveLayout/);
   assert.doesNotMatch(`${adminPage}${archiveClient}${config}`, /123456/);

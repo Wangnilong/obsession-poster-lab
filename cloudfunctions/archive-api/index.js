@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const cloudbase = require("@cloudbase/node-sdk");
 const JSZip = require("jszip");
+const { sanitizeArticle } = require("./article-html");
 
 const cloud = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
 const db = cloud.database();
@@ -326,14 +327,19 @@ async function listArchive(event, headers) {
   }
 
   try {
-    const result = await db.collection("archive_content").where({ film, section, status: "published" }).orderBy("createdAt", "desc").get();
-    const records = result.data || [];
-    const fileIDs = [...new Set(records.flatMap((record) => [record.fileID, ...(record.layout || []).map((block) => block.fileID)]).filter(Boolean))];
+    const records = [];
+    for (let offset = 0; ; offset += 100) {
+      const result = await db.collection("archive_content").where({ film, section, status: "published" }).orderBy("createdAt", "desc").skip(offset).limit(100).get();
+      records.push(...(result.data || []));
+      if ((result.data || []).length < 100) break;
+    }
+    const fileIDs = [...new Set(records.flatMap((record) => [record.fileID, ...(record.layout || []).map((block) => block.fileID), ...Array.from(String(record.articleHtml || "").matchAll(/data-file-id="([^"]+)"/g), match => match[1])]).filter(Boolean))];
     const temporaryUrls = await getTemporaryUrls(fileIDs);
 
     return json(200, headers, {
       entries: records.map((record) => ({
         title: record.title,
+        articleHtml: record.articleHtml ? sanitizeArticle(record.articleHtml, temporaryUrls) : undefined,
         meta: record.meta,
         copy: record.copy,
         href: record.href,
@@ -351,7 +357,53 @@ async function listArchive(event, headers) {
   }
 }
 
+async function editorContent(event) {
+  const uid = cleanText(cloud.auth().getUserInfo()?.uid, 64);
+  const isAdmin = adminUserIds.has(uid);
+  const photoUploader = uid === "2084617329225424898";
+  if (!isAdmin && !photoUploader) throw new Error("请先登录内容后台");
+  if (!isAdmin && (event.action === "editor-hide" || (event.action === "editor-list" ? event.section !== "photos" : event.record?.section !== "photos" || event.record?._id))) throw new Error("此账号只允许查看和上传映后图片");
+  if (event.action === "editor-list") {
+    if (!allowedFilms.has(event.film) || !allowedSections.has(event.section)) throw new Error("场次或分类不正确");
+    const offset = Math.max(0, Number(event.offset) || 0);
+    const result = await db.collection("archive_content").where({ film: event.film, section: event.section, ...(!isAdmin ? { status: "published" } : {}) }).orderBy("createdAt", "desc").skip(offset).limit(100).get();
+    return { ok: true, records: result.data || [] };
+  }
+  if (event.action === "editor-hide") {
+    const id = cleanText(event.id, 128);
+    if (!id) throw new Error("内容不存在");
+    await db.collection("archive_content").doc(id).update({ status: "hidden", updatedAt: Date.now(), updatedBy: uid });
+    return { ok: true };
+  }
+  const input = event.record || {};
+  if (!isAdmin && (input.status !== "published" || !String(input.fileID || "").startsWith("cloud://") || input.articleHtml || input.pendingHtml || input.layout?.length)) throw new Error("此账号只能上传照片");
+  if (!allowedFilms.has(input.film) || !allowedSections.has(input.section) || !["published", "draft", "hidden"].includes(input.status)) throw new Error("场次、分类或发布状态不正确");
+  if (!String(input.title || "").trim()) throw new Error("请填写标题");
+  if (String(input.articleHtml || "").length + String(input.pendingHtml || "").length > 500000) throw new Error("文章过长，请拆分为多篇");
+  const record = {
+    film: input.film, section: input.section, title: cleanText(input.title, 200), copy: String(input.copy || "").slice(0, 2000),
+    meta: cleanText(input.meta, 100), status: input.status, createdAt: Number(input.createdAt) || Date.now(), createdBy: cleanText(input.createdBy, 64),
+    articleHtml: sanitizeArticle(input.articleHtml), pendingHtml: sanitizeArticle(input.pendingHtml), pendingTitle: cleanText(input.pendingTitle, 200), pendingCopy: String(input.pendingCopy || "").slice(0, 2000),
+    fileID: cleanText(input.fileID, 1024), imageAlt: cleanText(input.imageAlt, 300), layout: Array.isArray(input.layout) ? input.layout : [], updatedAt: Date.now(), updatedBy: uid,
+  };
+  let id = cleanText(input._id, 128);
+  if (id) {
+    const existing = await db.collection("archive_content").doc(id).get();
+    const previous = Array.isArray(existing.data) ? existing.data[0] : existing.data;
+    if (!previous || previous.film !== input.film || previous.section !== input.section) throw new Error("原内容不存在，请重新打开");
+    record.createdAt = previous.createdAt; record.createdBy = previous.createdBy;
+    await db.collection("archive_content").doc(id).update(record);
+  } else {
+    const result = await db.collection("archive_content").add(record); id = result.id || result._id;
+  }
+  return { ok: true, id };
+}
+
 exports.main = async (event = {}) => {
+  if (!event.httpMethod && ["editor-list", "editor-save", "editor-hide"].includes(event.action)) {
+    try { return await editorContent(event); }
+    catch (error) { console.error("content editor failed", error); return { ok: false, message: error instanceof Error ? error.message : "内容保存失败" }; }
+  }
   if (!event.httpMethod && event.action === "admin-cards") {
     try {
       return await listAdminCards();

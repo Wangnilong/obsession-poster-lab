@@ -132,14 +132,14 @@ export default function ArchiveFilmPage({ slug }: { slug: string }) {
             ) : entries.length ? (
               <div className="archive-entry-grid">
                 {entries.map((entry, index) => {
-                  const hasLayout = Boolean(entry.layout?.length);
+                  const hasLayout = Boolean(entry.layout?.length || entry.articleHtml);
                   const body = (
                     <>
                       {entry.image ? <figure><img src={entry.image} alt={entry.imageAlt ?? ""} /></figure> : null}
                       <div className="archive-entry-copy">
                         <span>{String(index + 1).padStart(2, "0")} · {entry.meta}</span>
                         <h3>{entry.title}</h3>
-                        {hasLayout ? <ArchiveLayout blocks={entry.layout ?? []} /> : entry.copy ? <p>{entry.copy}</p> : null}
+                        {entry.articleHtml ? <div className="archive-rich-content" dangerouslySetInnerHTML={{ __html: entry.articleHtml }} /> : hasLayout ? <ArchiveLayout blocks={entry.layout ?? []} /> : entry.copy ? <p>{entry.copy}</p> : null}
                         {!hasLayout && entry.action ? <strong>{entry.action} ↗</strong> : null}
                       </div>
                     </>

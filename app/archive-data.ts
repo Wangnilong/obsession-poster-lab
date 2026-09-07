@@ -21,6 +21,7 @@ export type ArchiveLayoutBlock =
     };
 
 export type ArchiveEntry = {
+  articleHtml?: string;
   title: string;
   meta: string;
   copy?: string;
