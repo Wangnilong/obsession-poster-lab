@@ -18,3 +18,10 @@ test("article publishing removes executable content and unsafe CSS", () => {
   assert.doesNotMatch(html, /script|onerror|javascript|position|background-image|iframe|evil.example/);
   assert.match(html, /color:red/);
 });
+
+test("Word paste keeps decimal point sizes, tables and paragraph spacing but strips foreign styles", () => {
+  const html = sanitizeArticle('<table style="position:fixed"><tr><td colspan="2"><p style="line-height:18pt;text-indent:24pt;margin-bottom:12pt;mso-style-name:Normal"><span style="font-size:10.5pt;font-family:SimSun;color:#333333">Word 文稿</span></p></td></tr></table>');
+  for (const format of ["<table>", 'colspan="2"', "line-height:18pt", "text-indent:24pt", "margin-bottom:12pt", "font-size:10.5pt", "font-family:SimSun"]) assert.ok(html.includes(format));
+  assert.doesNotMatch(html, /position|mso-style/);
+  assert.equal(sanitizeArticle(html), html);
+});

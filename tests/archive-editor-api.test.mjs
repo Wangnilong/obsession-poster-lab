@@ -48,3 +48,23 @@ test("drafts stay private, publishing preserves formatting, and later pending ed
   await run({ action: "editor-hide", id: saved.id });
   assert.equal((await read()).entries.length, 0);
 });
+
+test("Word formatting survives draft, reopen, publish and republish without changing other records", async () => {
+  const { run, records } = service("2084617266415722497");
+  const html = '<p style="text-indent:2em;line-height:1.5;margin-bottom:1em"><span style="font-size:14pt;background-color:#fff09b">正文</span></p><table><tbody><tr><td>场次</td><td>时间</td></tr></tbody></table>';
+  const record = { film: "obsession", section: "articles", title: "排版测试", status: "draft", articleHtml: html, createdBy: "editor", createdAt: 5 };
+  const other = await run({ action: "editor-save", record: { ...record, title: "另一篇" } });
+  const untouched = JSON.stringify(records.get(other.id));
+  const saved = await run({ action: "editor-save", record });
+  const reopened = (await run({ action: "editor-list", film: "obsession", section: "articles" })).records.find(item => item._id === saved.id);
+  for (const format of ["text-indent:2em", "line-height:1.5", "margin-bottom:1em", "font-size:14pt", "<table>"]) assert.ok(reopened.articleHtml.includes(format));
+  await run({ action: "editor-save", record: { ...reopened, status: "published", pendingTitle: "待发布", pendingHtml: "", pendingCopy: "" } });
+  const read = async () => JSON.parse((await run({ httpMethod: "GET", queryStringParameters: { film: "obsession", section: "articles" } })).body).entries;
+  const live = (await read())[0];
+  assert.equal(live.title, "排版测试");
+  assert.match(live.articleHtml, /text-indent:2em/);
+  assert.doesNotMatch(JSON.stringify(live), /pendingTitle|待发布/);
+  await run({ action: "editor-save", record: { ...reopened, status: "published", title: "新版", pendingTitle: "", articleHtml: '<h2 style="text-align:center">新标题</h2>' } });
+  assert.equal((await read())[0].title, "新版");
+  assert.equal(JSON.stringify(records.get(other.id)), untouched);
+});

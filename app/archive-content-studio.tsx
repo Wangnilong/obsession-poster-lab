@@ -57,8 +57,9 @@ export default function ArchiveContentStudio({ film, section, username, role }: 
   }, [dirty, queue.length, busy, imageBusy]);
 
   const openArticle = (record: PublishedArchiveRecord | null) => {
-    setCurrent(record); setTitle(record?.pendingTitle || record?.title || ""); setSummary(record?.pendingCopy || record?.copy || "");
-    const body = record ? record.pendingHtml || legacyHtml(record) : "";
+    const hasPending = Boolean(record?.pendingTitle);
+    setCurrent(record); setTitle(hasPending ? record!.pendingTitle! : record?.title || ""); setSummary(hasPending ? record!.pendingCopy || "" : record?.copy || "");
+    const body = record ? hasPending ? record.pendingHtml || "" : legacyHtml(record) : "";
     setHtml(body); setInitialHtml(body); setDocumentKey(value => value + 1); setEditing(true); setDirty(false); setMessage("");
   };
   const saveArticle = async (publish: boolean) => {
@@ -130,8 +131,9 @@ export default function ArchiveContentStudio({ film, section, username, role }: 
     {message && <p className="cms-notice" role="status">{message}</p>}
     {error && <p className="cms-error" role="alert">{error} <button type="button" onClick={() => void reload()}>重新加载</button></p>}
     {editing ? <>
-      <div className="cms-document-meta"><input disabled={busy} aria-label="文章标题" placeholder="填写标题" value={title} onChange={event => { setTitle(event.target.value); setDirty(true); }} /><input disabled={busy} aria-label="文章摘要" placeholder="填写摘要（选填）" value={summary} onChange={event => { setSummary(event.target.value); setDirty(true); }} /></div>
-      <ArchiveRichEditor key={documentKey} initialHtml={initialHtml} film={film} disabled={busy} onChange={value => { setHtml(value); setDirty(true); }} onBusy={setImageBusy} onMessage={setMessage} />
+      <ArchiveRichEditor key={documentKey} initialHtml={initialHtml} film={film} disabled={busy} onChange={value => { setHtml(value); setDirty(true); }} onBusy={setImageBusy} onMessage={setMessage}>
+        <div className="cms-document-meta"><input disabled={busy} aria-label="文章标题" placeholder="填写标题" value={title} onChange={event => { setTitle(event.target.value); setDirty(true); }} /><input disabled={busy} aria-label="文章摘要" placeholder="填写摘要（选填）" value={summary} onChange={event => { setSummary(event.target.value); setDirty(true); }} /></div>
+      </ArchiveRichEditor>
       <footer className="cms-editor-status"><span>{html.replace(/<[^>]*>/g, "").length} 字</span><span>{dirty ? "有未保存的修改" : "已保存"} · Ctrl / ⌘ + S 保存草稿</span></footer>
     </> : isAlbum ? <div className="cms-album" onDragOver={event => { if (event.dataTransfer.types.includes("Files")) event.preventDefault(); }} onDrop={event => { event.preventDefault(); if (!busy) addFiles(Array.from(event.dataTransfer.files)); }}>
       <div className="cms-listbar"><strong>本场全部照片 · {photos.length} 张</strong><div><button type="button" disabled={loading} onClick={() => void reload()}>刷新</button>{role === "admin" && <><button type="button" onClick={() => setSelected(selected.length === photos.length ? [] : photos.map(photo => photo.key))}>{selected.length === photos.length && photos.length ? "取消全选" : "全选"}</button><button type="button" disabled={!selected.length || busy} onClick={() => void removePhotos()}>移除所选 {selected.length || ""}</button></>}</div></div>
