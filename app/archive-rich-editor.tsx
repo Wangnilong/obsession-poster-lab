@@ -16,7 +16,7 @@ export function cleanEditorHtml(html: string) {
       else element.style.setProperty(property, element.style.getPropertyValue(property));
     }
   });
-  const container = document.createElement("div"); container.append(fragment);
+  const container = document.createElement("div"); container.appendChild(fragment);
   return container.innerHTML;
 }
 
