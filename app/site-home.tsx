@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element, @next/next/no-html-link-for-pages -- static EdgeOne/Vite routes use portable anchors */
 
 import { useEffect } from "react";
+import HomeActivityTimeline from "./archive-timeline";
 
 const screeningFlow = [
   ["01", "选片", "找到值得被看见的作品"],
@@ -77,6 +78,7 @@ export default function SiteHome() {
         <nav aria-label="主页导航">
           <a href="#what">我们做什么</a>
           <a href="/archive/">往期活动</a>
+          <a href="#activity-calendar">活动日历</a>
           <a href="/kill-bill/">下一场活动</a>
         </nav>
         <a className="intro42-now" href="/kill-bill/">
@@ -285,6 +287,8 @@ export default function SiteHome() {
         </div>
         <strong aria-hidden="true">ARCHIVE</strong>
       </section>
+
+      <HomeActivityTimeline />
 
       <section className="intro42-close" data-reveal>
         <p>我们想继续做下去</p>

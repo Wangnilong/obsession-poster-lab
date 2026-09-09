@@ -10,6 +10,7 @@ export type ArchiveLayoutBlock =
       type: "image";
       image?: string;
       fileID?: string;
+      imageKey?: string;
       alt?: string;
       caption?: string;
       size?: "full" | "wide" | "half";
@@ -21,6 +22,8 @@ export type ArchiveLayoutBlock =
     };
 
 export type ArchiveEntry = {
+  id?: string;
+  imageKey?: string;
   articleHtml?: string;
   title: string;
   meta: string;
@@ -33,7 +36,7 @@ export type ArchiveEntry = {
 };
 
 export type ArchiveFilm = {
-  slug: "obsession" | "kill-bill";
+  slug: string;
   issue: string;
   title: string;
   zhTitle: string;
@@ -43,6 +46,10 @@ export type ArchiveFilm = {
   accent: string;
   background: string;
   foreground: string;
+  date?: string;
+  location?: string;
+  summary?: string;
+  status?: "draft" | "published";
   sections: Record<ArchiveSection, ArchiveEntry[]>;
 };
 
@@ -50,7 +57,7 @@ export const archiveSectionLabels: Record<ArchiveSection, { index: string; zh: s
   articles: { index: "01", zh: "文章", en: "READING" },
   photos: { index: "02", zh: "映后图片", en: "AFTER THE SCREENING" },
   tools: { index: "03", zh: "工具", en: "TOOLS" },
-  merch: { index: "04", zh: "周边", en: "OBJECTS" },
+  merch: { index: "04", zh: "物料与周边", en: "OBJECTS" },
 };
 
 export const archiveFilms: ArchiveFilm[] = [

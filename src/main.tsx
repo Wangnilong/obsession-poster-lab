@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import ArchivePage from "../app/archive-page";
 import ArchiveAdminPage from "../app/archive-admin-page";
 import ArchiveFilmPage from "../app/archive-film-page";
+import ArchiveEventPage from "../app/archive-event-page";
 import IssuePage from "../app/issue-page";
 import KillBillGenerator from "../app/kill-bill-generator";
 import SiteHome from "../app/site-home";
@@ -21,6 +22,8 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     {isArchiveAdmin ? (
       <ArchiveAdminPage />
+    ) : /(?:^|\/)archive\/event$/.test(currentPath) ? (
+      <ArchiveEventPage />
     ) : archiveFilmMatch ? (
       <ArchiveFilmPage slug={archiveFilmMatch[1]} />
     ) : isArchive ? (

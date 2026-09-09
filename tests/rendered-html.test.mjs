@@ -184,8 +184,8 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.match(archiveApi, /adminUserIds/);
   assert.match(archiveApi, /requireAdmin/);
   assert.match(adminPage, /photo-uploader/);
-  assert.match(filmPage, /loadArchiveContent/);
-  assert.match(filmPage, /ArchiveLayout/);
+  assert.match(filmPage, /loadArchiveDocument/);
+  assert.match(filmPage, /ArchiveFilmView/);
   assert.doesNotMatch(`${adminPage}${archiveClient}${config}`, /123456/);
 });
 

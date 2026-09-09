@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { archiveFilms, archiveSectionLabels, type ArchiveSection } from "./archive-data";
+import { archiveSectionLabels, type ArchiveFilm, type ArchiveSection } from "./archive-data";
 import { hideEditorContent, listEditorContent, saveEditorContent, uploadArchiveImage, type ArchiveRole, type PublishedArchiveRecord } from "./cloudbase-archive";
 import ArchiveRichEditor, { cleanEditorHtml } from "./archive-rich-editor";
 
@@ -17,7 +17,7 @@ function legacyHtml(record: PublishedArchiveRecord) {
   }).join("") || `<p>${escape(record.copy || "")}</p>`;
 }
 
-export default function ArchiveContentStudio({ film, section, username, role }: { film: string; section: ArchiveSection; username: string; role: ArchiveRole }) {
+export default function ArchiveContentStudio({ film, activeFilm, section, username, role }: { film: string; activeFilm: ArchiveFilm; section: ArchiveSection; username: string; role: ArchiveRole }) {
   const [records, setRecords] = useState<PublishedArchiveRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -40,7 +40,6 @@ export default function ArchiveContentStudio({ film, section, username, role }: 
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => () => queueRef.current.forEach(item => URL.revokeObjectURL(item.url)), []);
   const [selected, setSelected] = useState<string[]>([]);
-  const activeFilm = archiveFilms.find(item => item.slug === film)!;
   const isAlbum = section === "photos" || section === "merch";
   const reload = useCallback(async () => {
     setLoading(true); setError("");

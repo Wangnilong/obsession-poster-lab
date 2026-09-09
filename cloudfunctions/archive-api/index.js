@@ -4,9 +4,14 @@ const crypto = require("node:crypto");
 const cloudbase = require("@cloudbase/node-sdk");
 const JSZip = require("jszip");
 const { sanitizeArticle } = require("./article-html");
+const { imageKeys, presentationService } = require("./presentation");
+const { eventsService } = require("./events");
+const { importWechat } = require("./wechat");
 
 const cloud = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
 const db = cloud.database();
+const events = eventsService(db);
+const presentation = presentationService(db, getTemporaryUrls, events.exists);
 
 const allowedOrigins = new Set([
   "https://cosmosfilm42.cn",
@@ -322,7 +327,7 @@ async function createCard(event, headers) {
 async function listArchive(event, headers) {
   const film = String(event.queryStringParameters?.film || "");
   const section = String(event.queryStringParameters?.section || "");
-  if (!allowedFilms.has(film) || !allowedSections.has(section)) {
+  if (!await events.exists(film, !event.adminPreview) || !allowedSections.has(section)) {
     return json(400, headers, { entries: [] });
   }
 
@@ -337,7 +342,10 @@ async function listArchive(event, headers) {
     const temporaryUrls = await getTemporaryUrls(fileIDs);
 
     return json(200, headers, {
+      presentation: await presentation.get(film),
       entries: records.map((record) => ({
+        id: record._id,
+        imageKey: `${record._id}:cover`,
         title: record.title,
         articleHtml: record.articleHtml ? sanitizeArticle(record.articleHtml, temporaryUrls) : undefined,
         meta: record.meta,
@@ -346,8 +354,8 @@ async function listArchive(event, headers) {
         action: record.action,
         image: record.fileID ? temporaryUrls.get(record.fileID) : undefined,
         imageAlt: record.imageAlt,
-        layout: (record.layout || []).map((block) => block.type === "image"
-          ? { ...block, image: block.fileID ? temporaryUrls.get(block.fileID) : undefined, fileID: undefined }
+        layout: (record.layout || []).map((block, index) => block.type === "image"
+          ? { ...block, imageKey: imageKeys(record)[index], image: block.fileID ? temporaryUrls.get(block.fileID) : undefined, fileID: undefined }
           : block),
       })),
     });
@@ -364,7 +372,7 @@ async function editorContent(event) {
   if (!isAdmin && !photoUploader) throw new Error("请先登录内容后台");
   if (!isAdmin && (event.action === "editor-hide" || (event.action === "editor-list" ? event.section !== "photos" : event.record?.section !== "photos" || event.record?._id))) throw new Error("此账号只允许查看和上传映后图片");
   if (event.action === "editor-list") {
-    if (!allowedFilms.has(event.film) || !allowedSections.has(event.section)) throw new Error("场次或分类不正确");
+    if (!await events.exists(event.film) || !allowedSections.has(event.section)) throw new Error("场次或分类不正确");
     const offset = Math.max(0, Number(event.offset) || 0);
     const result = await db.collection("archive_content").where({ film: event.film, section: event.section, ...(!isAdmin ? { status: "published" } : {}) }).orderBy("createdAt", "desc").skip(offset).limit(100).get();
     return { ok: true, records: result.data || [] };
@@ -377,7 +385,7 @@ async function editorContent(event) {
   }
   const input = event.record || {};
   if (!isAdmin && (input.status !== "published" || !String(input.fileID || "").startsWith("cloud://") || input.articleHtml || input.pendingHtml || input.layout?.length)) throw new Error("此账号只能上传照片");
-  if (!allowedFilms.has(input.film) || !allowedSections.has(input.section) || !["published", "draft", "hidden"].includes(input.status)) throw new Error("场次、分类或发布状态不正确");
+  if (!await events.exists(input.film) || !allowedSections.has(input.section) || !["published", "draft", "hidden"].includes(input.status)) throw new Error("场次、分类或发布状态不正确");
   if (!String(input.title || "").trim()) throw new Error("请填写标题");
   if (String(input.articleHtml || "").length + String(input.pendingHtml || "").length > 500000) throw new Error("文章过长，请拆分为多篇");
   const record = {
@@ -400,6 +408,33 @@ async function editorContent(event) {
 }
 
 exports.main = async (event = {}) => {
+  if (!event.httpMethod && event.action === "import-wechat") {
+    try {
+      const uid = requireAdmin();
+      if (!await events.exists(event.film)) throw new Error("请先保存活动");
+      const imported = await importWechat(cloud, event.url, event.film);
+      const saved = await editorContent({ action: "editor-save", record: { film: event.film, section: "articles", title: imported.title, articleHtml: imported.articleHtml, status: "draft", createdBy: uid } });
+      return { ok: true, id: saved.id, title: imported.title, images: imported.images };
+    } catch (error) { return { ok: false, message: error.message || "公众号转换失败，请稍后重试" }; }
+  }
+  if (!event.httpMethod && ["events-get", "events-save", "event-preview"].includes(event.action)) {
+    try {
+      const uid = requireAdmin();
+      if (event.action === "event-preview") {
+        const response = await listArchive({ queryStringParameters: event, adminPreview: true }, {});
+        if (response.statusCode !== 200) throw new Error("活动内容加载失败");
+        return { ok: true, document: JSON.parse(response.body) };
+      }
+      return { ok: true, catalog: event.action === "events-save" ? await events.save(event.catalog, uid) : await events.get() };
+    } catch (error) { return { ok: false, message: error.message || "活动保存失败" }; }
+  }
+  if (!event.httpMethod && ["presentation-get", "presentation-save"].includes(event.action)) {
+    try {
+      const uid = requireAdmin();
+      const settings = event.action === "presentation-save" ? await presentation.save(event.film, event.presentation, uid) : await presentation.get(event.film);
+      return { ok: true, presentation: settings };
+    } catch (error) { return { ok: false, message: error.message || "页面布局保存失败" }; }
+  }
   if (!event.httpMethod && ["editor-list", "editor-save", "editor-hide"].includes(event.action)) {
     try { return await editorContent(event); }
     catch (error) { console.error("content editor failed", error); return { ok: false, message: error instanceof Error ? error.message : "内容保存失败" }; }
@@ -441,6 +476,17 @@ exports.main = async (event = {}) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers, body: "" };
 
   const action = String(event.queryStringParameters?.action || "");
+  if (action === "events" && event.httpMethod === "GET") {
+    try { const catalog = await events.get(); return json(200, headers, { events: catalog.events.filter(item => item.status === "published") }); }
+    catch { return json(500, headers, { message: "活动加载失败" }); }
+  }
+  if (action === "presentations" && event.httpMethod === "GET") {
+    try {
+      const catalog = await events.get();
+      const values = await Promise.all(catalog.events.filter(item => item.status === "published").map(async item => [item.slug, await presentation.get(item.slug)]));
+      return json(200, headers, { presentations: Object.fromEntries(values) });
+    } catch { return json(500, headers, { message: "页面布局加载失败" }); }
+  }
   if (action === "cards" && event.httpMethod === "GET") return listCards(headers);
   if (action === "create-card" && event.httpMethod === "POST") return createCard(event, headers);
   if (event.httpMethod && event.httpMethod !== "GET") return json(405, headers, { message: "请求方式不支持" });

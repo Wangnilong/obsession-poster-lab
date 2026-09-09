@@ -1,4 +1,6 @@
 import type { ArchiveEntry, ArchiveLayoutBlock, ArchiveSection } from "./archive-data";
+import { emptyPresentation, type ArchivePresentation } from "./archive-presentation";
+import { eventFilm, type EventCatalog, type EventRecord } from "./archive-events";
 
 type CloudBaseSdk = typeof import("@cloudbase/js-sdk");
 type CloudBaseApp = ReturnType<CloudBaseSdk["init"]>;
@@ -229,7 +231,7 @@ export async function loadArchiveContent(film: string, section: ArchiveSection):
   }
 }
 
-export async function uploadArchiveImage(file: File, film: string, section: ArchiveSection) {
+export async function uploadArchiveImage(file: File, film: string, section: ArchiveSection | "covers") {
   if (!file.type.startsWith("image/")) throw new Error("请选择图片文件");
   if (file.size > 20 * 1024 * 1024) throw new Error(`${file.name} 超过 20 MB，请压缩后再上传`);
   const app = await getArchiveApp();
@@ -278,6 +280,51 @@ export async function saveEditorContent(record: PublishedArchiveRecord, role: Ar
 
 export async function hideEditorContent(id: string) {
   await editorRequest("editor-hide", { id });
+}
+
+export async function loadArchiveDocument(film: string, section: ArchiveSection) {
+  const config = await loadConfig();
+  if (!config.publicApiUrl) throw new Error("内容服务尚未连接");
+  const endpoint = new URL(config.publicApiUrl);
+  endpoint.searchParams.set("film", film); endpoint.searchParams.set("section", section);
+  const response = await fetch(endpoint, { cache: "no-store" });
+  if (!response.ok) throw new Error("内容加载失败，请稍后重试");
+  const result = await response.json() as { entries: ArchiveEntry[]; presentation?: ArchivePresentation };
+  return { entries: result.entries, presentation: result.presentation || emptyPresentation() };
+}
+
+export async function loadArchivePresentations(): Promise<Record<string, ArchivePresentation>> {
+  const config = await loadConfig();
+  if (!config.publicApiUrl) return {};
+  const endpoint = new URL(config.publicApiUrl); endpoint.searchParams.set("action", "presentations");
+  const response = await fetch(endpoint, { cache: "no-store" });
+  if (!response.ok) throw new Error("海报加载失败");
+  return ((await response.json()) as { presentations: Record<string, ArchivePresentation> }).presentations;
+}
+
+export async function getEditorPresentation(film: string) {
+  return (await editorRequest<{ presentation: ArchivePresentation }>("presentation-get", { film })).presentation;
+}
+
+export async function loadArchiveEvents() {
+  const config = await loadConfig();
+  if (!config.publicApiUrl) throw new Error("活动服务尚未连接");
+  const endpoint = new URL(config.publicApiUrl); endpoint.searchParams.set("action", "events");
+  const response = await fetch(endpoint, { cache: "no-store" });
+  if (!response.ok) throw new Error("活动加载失败，请刷新重试");
+  return ((await response.json()) as { events: EventRecord[] }).events.map(eventFilm);
+}
+export async function getEditorEvents() { return (await editorRequest<{ catalog: EventCatalog }>("events-get", {})).catalog; }
+export async function saveEditorEvents(catalog: EventCatalog) { return (await editorRequest<{ catalog: EventCatalog }>("events-save", { catalog })).catalog; }
+export async function loadEditorDocument(film: string, section: ArchiveSection) {
+  return (await editorRequest<{ document: { entries: ArchiveEntry[]; presentation: ArchivePresentation } }>("event-preview", { film, section })).document;
+}
+export async function importWechatArticle(film: string, url: string) {
+  return editorRequest<{ id: string; title: string; images: number }>("import-wechat", { film, url });
+}
+
+export async function saveEditorPresentation(film: string, presentation: ArchivePresentation) {
+  return (await editorRequest<{ presentation: ArchivePresentation }>("presentation-save", { film, presentation })).presentation;
 }
 
 export async function loadAdminCardCreations(role: ArchiveRole): Promise<AdminCardCreation[]> {
