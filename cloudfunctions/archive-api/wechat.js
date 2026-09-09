@@ -65,7 +65,7 @@ async function importWechat(cloud, url, film, fetchFile = download) {
       files.set(src, uploaded.fileID);
     }));
   }
-  const urls = await cloud.getTempFileURL({ fileList: [...files.values()] });
+  const urls = files.size ? await cloud.getTempFileURL({ fileList: [...files.values()] }) : { fileList: [] };
   const temporary = new Map((urls.fileList || []).map(item => [item.fileID, item.tempFileURL]));
   const withImages = sanitize(article.html, { allowedTags: [...articleFormat.tags, "section"], allowedAttributes: false, transformTags: {
     section: "div", img: (tagName, attributes) => {

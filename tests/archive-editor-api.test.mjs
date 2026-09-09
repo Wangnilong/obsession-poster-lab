@@ -146,4 +146,7 @@ test('WeChat conversion extracts the article, stores images, and sanitizes scrip
   assert.match(result.articleHtml, /text-align:center/);
   assert.match(result.articleHtml, /公众号原文/);
   assert.doesNotMatch(result.articleHtml, /onerror|script|alert\(1\)|页面广告/);
+  const textOnly = await importWechat({}, 'https://mp.weixin.qq.com/s/text', 'kill-bill', async () => ({ buffer: Buffer.from('<h1 id="activity-name">文字文章</h1><div id="js_content"><p>只有正文</p></div>') }));
+  assert.equal(textOnly.images, 0);
+  assert.match(textOnly.articleHtml, /只有正文/);
 });
