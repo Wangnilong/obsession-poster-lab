@@ -7,11 +7,13 @@ const { sanitizeArticle } = require("./article-html");
 const { imageKeys, presentationService } = require("./presentation");
 const { eventsService } = require("./events");
 const { importWechat } = require("./wechat");
+const { photoSubmissionsService } = require("./photo-submissions");
 
 const cloud = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
 const db = cloud.database();
 const events = eventsService(db);
 const presentation = presentationService(db, getTemporaryUrls, events.exists);
+const photoSubmissions = photoSubmissionsService(db, cloud, events, getTemporaryUrls);
 
 const allowedOrigins = new Set([
   "https://cosmosfilm42.cn",
@@ -408,6 +410,12 @@ async function editorContent(event) {
 }
 
 exports.main = async (event = {}) => {
+  if (!event.httpMethod && ["photo-submissions-list", "photo-submissions-review"].includes(event.action)) {
+    try {
+      const uid = requireAdmin();
+      return event.action === "photo-submissions-review" ? await photoSubmissions.review(event, uid) : { ok: true, ...await photoSubmissions.list(event) };
+    } catch (error) { return { ok: false, message: error.message || "审核操作失败" }; }
+  }
   if (!event.httpMethod && event.action === "import-wechat") {
     try {
       const uid = requireAdmin();
@@ -476,6 +484,14 @@ exports.main = async (event = {}) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers, body: "" };
 
   const action = String(event.queryStringParameters?.action || "");
+  if (["submit-photo", "photo-upload-start", "photo-upload-part", "photo-upload-finish"].includes(action) && event.httpMethod === "POST") {
+    if (!allowedOrigins.has(requestOrigin(event))) return json(403, headers, { message: "请在活动网站提交照片" });
+    try {
+      const sourceIp = event.requestContext?.sourceIp || event.requestContext?.identity?.sourceIp || "";
+      const handler = action === "photo-upload-start" ? "start" : action === "photo-upload-part" ? "part" : action === "photo-upload-finish" ? "finish" : "submit";
+      return json(201, headers, await photoSubmissions[handler](parseBody(event), sourceIp));
+    } catch (error) { return json(400, headers, { message: error.message || "照片提交失败，请稍后重试" }); }
+  }
   if (action === "events" && event.httpMethod === "GET") {
     try { const catalog = await events.get(); return json(200, headers, { events: catalog.events.filter(item => item.status === "published") }); }
     catch { return json(500, headers, { message: "活动加载失败" }); }

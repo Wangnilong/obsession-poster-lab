@@ -42,7 +42,7 @@ export default function ArchiveFilmView({ film, section, entries, presentation, 
     <header className="archive-header archive-film-header">
       {controls ? <span>页面预览</span> : <a href="/archive/" className="archive-back-link">← 往期活动</a>}
       <div className="archive-header-title"><span>ISSUE {film.issue} · {film.year}</span><strong>{film.title}</strong></div>
-      {!controls && <a href="/archive/admin/" className="archive-login-link">内容登录 ↗</a>}
+      {!controls && <a href={`/archive/upload/?event=${encodeURIComponent(film.slug)}`} className="archive-login-link">上传活动照片 ↗</a>}
     </header>
     <section className="archive-film-shell">
       <aside className="archive-film-identity">

@@ -323,6 +323,34 @@ export async function importWechatArticle(film: string, url: string) {
   return editorRequest<{ id: string; title: string; images: number }>("import-wechat", { film, url });
 }
 
+export type AudiencePhoto = { id: string; film: string; displayName: string; caption: string; image: string; status: "pending" | "approved" | "rejected"; revision: number; createdAt: number };
+export async function submitAudiencePhoto(input: { film: string; submissionId: string; uploadToken: string; imageData: string; displayName: string; caption: string; consent: boolean }) {
+  const config = await loadConfig();
+  if (!config.publicApiUrl) throw new Error("照片投稿暂时不可用");
+  const request = async (action: string, data: object) => {
+    const endpoint = new URL(config.publicApiUrl!); endpoint.searchParams.set("action", action);
+    const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    const result = await response.json().catch(() => ({})) as { received?: boolean; message?: string };
+    if (!response.ok || !result.received) throw new Error(result.message || "提交失败，请稍后重试");
+  };
+  const contentHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input.imageData)))).map(value => value.toString(16).padStart(2, "0")).join("");
+  const base64 = input.imageData.slice(input.imageData.indexOf(",") + 1);
+  const parts = Math.ceil(base64.length / 60000);
+  const identity = { submissionId: input.submissionId, uploadToken: input.uploadToken };
+  await request("photo-upload-start", { ...identity, film: input.film, displayName: input.displayName, caption: input.caption, consent: input.consent, parts, contentHash });
+  for (let start = 0; start < parts; start += 4) {
+    const results = await Promise.allSettled(Array.from({ length: Math.min(4, parts - start) }, (_, offset) => { const index = start + offset; return request("photo-upload-part", { ...identity, index, chunk: base64.slice(index * 60000, (index + 1) * 60000) }); }));
+    const failed = results.find(result => result.status === "rejected"); if (failed?.status === "rejected") throw failed.reason;
+  }
+  await request("photo-upload-finish", identity);
+}
+export async function listAudiencePhotos(film: string, status: AudiencePhoto["status"], offset: number) {
+  return editorRequest<{ items: AudiencePhoto[]; hasMore: boolean }>("photo-submissions-list", { film, status, offset });
+}
+export async function reviewAudiencePhoto(item: AudiencePhoto, status: "approved" | "rejected") {
+  return editorRequest("photo-submissions-review", { id: item.id, revision: item.revision, status });
+}
+
 export async function saveEditorPresentation(film: string, presentation: ArchivePresentation) {
   return (await editorRequest<{ presentation: ArchivePresentation }>("presentation-save", { film, presentation })).presentation;
 }

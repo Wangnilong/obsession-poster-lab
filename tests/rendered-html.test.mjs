@@ -255,3 +255,14 @@ test("keeps large uploads memory-safe and renders locally", async () => {
   assert.match(page, /@page\{size:A4 portrait/);
   assert.doesNotMatch(page, /handGlow/);
 });
+
+test('audience photo page is available without signing in and retains a separate admin link', async () => {
+  const response = await render('/archive/upload');
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /上传活动照片/);
+  assert.match(html, /无需登录/);
+  assert.match(html, /等待审核/);
+  assert.match(html, /href="\/archive\/admin\/"/);
+  assert.doesNotMatch(html, /type="password"|name="username"/);
+});

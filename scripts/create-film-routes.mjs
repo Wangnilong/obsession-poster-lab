@@ -12,6 +12,7 @@ const filmRoutes = [
   "archive/kill-bill",
   "archive/admin",
   "archive/event",
+  "archive/upload",
 ];
 
 await Promise.all(

@@ -7,8 +7,11 @@ const require = createRequire(new URL("../cloudfunctions/archive-api/index.js", 
 const source = readFileSync(new URL("../cloudfunctions/archive-api/index.js", import.meta.url), "utf8");
 function service(uid) {
   const records = new Map();
+  const uploads = [];
   let serial = 0;
   const cloud = {
+    uploadFile: async input => { uploads.push(input); return { fileID: `cloud://test/${input.cloudPath}` }; },
+    deleteFile: async () => ({}),
     auth: () => ({ getUserInfo: () => ({ uid }) }),
     getTempFileURL: async ({ fileList }) => ({ fileList: fileList.map(fileID => ({ fileID, tempFileURL: `https://images.example/${encodeURIComponent(fileID)}` })) }),
     database: () => database,
@@ -19,13 +22,13 @@ function service(uid) {
         where(value) { filter = value; return query; }, orderBy() { return query; }, skip(value) { offset = value; return query; }, limit(value) { limit = value; return query; },
         async get() { return { data: [...records.values()].filter(record => Object.entries(filter).every(([key, value]) => record[key] === value)).slice(offset, offset + limit) }; },
         async add(record) { const id = String(++serial); records.set(id, { ...record, _id: id }); return { id }; },
-        doc(id) { return { get: async () => ({ data: records.has(id) ? [records.get(id)] : [] }), set: async record => { records.set(id, { ...record, _id: id }); }, update: async update => { records.set(id, { ...records.get(id), ...update }); } }; },
+        doc(id) { return { remove: async () => { records.delete(id); }, get: async () => ({ data: records.has(id) ? [records.get(id)] : [] }), set: async record => { records.set(id, { ...record, _id: id }); }, update: async update => { records.set(id, { ...records.get(id), ...update }); } }; },
       }; return query;
     },
   };
   const exports = {};
   vm.runInNewContext(source, { require: name => name === "@cloudbase/node-sdk" ? { init: () => cloud } : require(name), exports, console: { error() {}, warn() {} }, Buffer });
-  return { run: exports.main, records };
+  return { run: exports.main, records, uploads };
 }
 test("editor API requires authenticated content role and restricts photo uploader", async () => {
   const guest = service("");
@@ -149,4 +152,69 @@ test('WeChat conversion extracts the article, stores images, and sanitizes scrip
   const textOnly = await importWechat({}, 'https://mp.weixin.qq.com/s/text', 'kill-bill', async () => ({ buffer: Buffer.from('<h1 id="activity-name">文字文章</h1><div id="js_content"><p>只有正文</p></div>') }));
   assert.equal(textOnly.images, 0);
   assert.match(textOnly.articleHtml, /只有正文/);
+});
+const jpeg = Buffer.from([255,216,255,192,0,17,8,0,2,0,2,3,1,17,0,2,17,0,3,17,0,255,217]);
+const photoInput = { film: 'kill-bill', submissionId: 'b6e7a130-8af0-45f2-bc64-cdc88a550994', displayName: '观众', caption: '现场照片', consent: true, imageData: 'data:image/jpeg;base64,' + jpeg.toString('base64'), status: 'published' };
+const submitPhoto = (run, input = photoInput, origin = 'https://cosmosfilm42.cn') => run({ httpMethod: 'POST', headers: { origin }, queryStringParameters: { action: 'submit-photo' }, body: JSON.stringify(input) });
+
+test('public photo submissions stay private, retries never republish, and admin approval/retraction is atomic', async () => {
+  const { run, uploads, records } = service('2084617266415722497');
+  const first = await submitPhoto(run);
+  assert.equal(first.statusCode, 201, first.body);
+  assert.doesNotMatch(first.body, /fileID|image|cloud:\/\//);
+  assert.equal((await publicRead(run, { film: 'kill-bill', section: 'photos' })).entries.length, 0);
+  assert.equal((await run({ action: 'editor-list', film: 'kill-bill', section: 'photos' })).records.length, 0);
+  const pending = await run({ action: 'photo-submissions-list', status: 'pending' });
+  assert.equal(pending.items.length, 1);
+  assert.match(pending.items[0].image, /^https:/);
+  assert.equal((await submitPhoto(run)).statusCode, 201);
+  assert.equal(uploads.length, 1);
+  const item = pending.items[0];
+  assert.equal((await run({ action: 'photo-submissions-review', id: item.id, revision: 0, status: 'approved' })).ok, true);
+  const published = await publicRead(run, { film: 'kill-bill', section: 'photos' });
+  assert.equal(published.entries.length, 1);
+  assert.equal(published.entries[0].title, '现场照片');
+  assert.equal((await run({ action: 'photo-submissions-review', id: item.id, revision: 0, status: 'rejected' })).ok, false);
+  assert.equal((await run({ action: 'photo-submissions-review', id: item.id, revision: 1, status: 'rejected' })).ok, true);
+  assert.equal((await publicRead(run, { film: 'kill-bill', section: 'photos' })).entries.length, 0);
+  assert.equal((await submitPhoto(run)).statusCode, 201);
+  assert.equal(records.get(item.id).status, 'rejected');
+  assert.equal(uploads.length, 1);
+  assert.equal((await submitPhoto(run, { ...photoInput, caption: 'changed' })).statusCode, 400);
+});
+
+test('anonymous submissions require explicit consent and valid photo while moderation stays admin-only', async () => {
+  const { run, uploads } = service('');
+  assert.equal((await submitPhoto(run)).statusCode, 201);
+  for (const uid of ['', '2084617329225424898']) {
+    const restricted = service(uid);
+    for (const action of ['photo-submissions-list', 'photo-submissions-review']) assert.equal((await restricted.run({ action, status: 'pending' })).ok, false);
+  }
+  assert.equal((await submitPhoto(run, photoInput, 'https://untrusted.example')).statusCode, 403);
+  for (const change of [{ consent: false }, { film: 'non-existent' }, { imageData: 'data:image/jpeg;base64,' + Buffer.from('fake').toString('base64') }, { imageData: 'x'.repeat(1500000) }]) assert.equal((await submitPhoto(run, { ...photoInput, ...change })).statusCode, 400);
+  assert.equal(uploads.length, 1);
+});
+
+test('chunked uploads resume safely, verify integrity, and keep photos private until review', async () => {
+  const { run, records, uploads } = service('');
+  const identity = { submissionId: photoInput.submissionId, uploadToken: 'ddba0f1e-daa9-461d-aa5a-6fd5f202dcdb' };
+  const contentHash = require('node:crypto').createHash('sha256').update(photoInput.imageData).digest('hex');
+  const post = (action, input) => run({ httpMethod: 'POST', headers: { origin: 'https://cosmosfilm42.cn' }, queryStringParameters: { action }, body: JSON.stringify(input) });
+  const start = { ...photoInput, ...identity, imageData: undefined, parts: 2, contentHash };
+  assert.equal((await post('photo-upload-start', { ...start, consent: 'false' })).statusCode, 400);
+  assert.equal((await post('photo-upload-start', start)).statusCode, 201);
+  const encoded = jpeg.toString('base64'), split = 12;
+  assert.equal((await post('photo-upload-part', { ...identity, index: 0, chunk: encoded.slice(0, split) })).statusCode, 201);
+  assert.equal((await post('photo-upload-finish', identity)).statusCode, 400);
+  assert.equal((await post('photo-upload-part', { ...identity, uploadToken: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', index: 1, chunk: encoded.slice(split) })).statusCode, 400);
+  assert.equal((await post('photo-upload-start', start)).statusCode, 201);
+  assert.equal((await post('photo-upload-part', { ...identity, index: 0, chunk: encoded.slice(0, split) })).statusCode, 201);
+  assert.equal((await post('photo-upload-part', { ...identity, index: 1, chunk: encoded.slice(split) })).statusCode, 201);
+  const finished = await post('photo-upload-finish', identity);
+  assert.equal(finished.statusCode, 201, finished.body);
+  assert.equal((await post('photo-upload-finish', identity)).statusCode, 201);
+  assert.equal(uploads.length, 1);
+  assert.equal([...records.values()].filter(row => row.section === 'photo-upload-part').length, 0);
+  assert.equal([...records.values()].filter(row => row.section === 'photo-submissions' && row.status === 'pending').length, 1);
+  assert.equal((await publicRead(run, { film: 'kill-bill', section: 'photos' })).entries.length, 0);
 });

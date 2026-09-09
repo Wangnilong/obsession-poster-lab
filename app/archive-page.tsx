@@ -28,7 +28,7 @@ export default function ArchivePage() {
           <span>SCREENING ARCHIVE</span>
           <strong>往期活动</strong>
         </div>
-        <a href="/archive/admin/" className="archive-login-link">内容登录 ↗</a>
+        <a href="/archive/upload/" className="archive-login-link">上传活动照片 ↗</a>
       </header>
 
       <section className="archive-poster-grid" aria-label="选择一部电影">
@@ -51,7 +51,7 @@ export default function ArchivePage() {
 
       <footer className="archive-index-footer">
         <span>{String(films.length).padStart(2, "0")} EVENTS</span>
-        <span>COSMOS FILMS · 宇宙放映</span>
+        <a href="/archive/admin/">管理后台 ↗</a><span>COSMOS FILMS · 宇宙放映</span>
       </footer>
     </main>
   );
