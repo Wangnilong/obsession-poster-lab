@@ -51,7 +51,9 @@ export default function ArchiveFilmPage({ slug }: { slug: string }) {
   }
 
   const publishedEntries = section !== "tools" && published.key === `${slug}:${section}` ? published.entries : [];
-  const entries = [...publishedEntries, ...film.sections[section]];
+  // Managed sections use the same cloud records as the content desk.
+  // Only tools are fixed navigation; never append undeletable sample content.
+  const entries = section === "tools" ? film.sections.tools : publishedEntries;
   const galleryImages = entries.flatMap((entry) => {
     const images: { image: string; alt: string }[] = [];
     if (entry.image) images.push({ image: entry.image, alt: entry.imageAlt ?? entry.title });
@@ -153,7 +155,7 @@ export default function ArchiveFilmPage({ slug }: { slug: string }) {
                 })}
               </div>
             ) : (
-              <p className="archive-empty">这里会在散场以后慢慢长出来。</p>
+              <p className="archive-empty">暂无已发布内容。</p>
             )}
           </div>
         </section>

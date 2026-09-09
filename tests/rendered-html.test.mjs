@@ -105,7 +105,8 @@ test("server-renders each film archive with separate content tabs", async () => 
     readFile(new URL("../app/archive-film-page.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(obsessionHtml, /ISSUE 01/);
-  assert.match(obsessionHtml, /花为什么挡住了脸/);
+  assert.doesNotMatch(obsessionHtml, /花为什么挡住了脸/);
+  assert.match(obsessionHtml, /暂无已发布内容/);
   assert.match(obsessionHtml, /\?section=articles/);
   assert.match(obsessionHtml, /\?section=photos/);
   assert.match(obsessionHtml, /\?section=tools/);
@@ -188,16 +189,15 @@ test("keeps archive roles and CloudBase publishing out of static passwords", asy
   assert.doesNotMatch(`${adminPage}${archiveClient}${config}`, /123456/);
 });
 
-test("server-renders a standalone editorial page for each issue", async () => {
+test("old sample article links show the managed archive without the retired article", async () => {
   const response = await render("/issues/obsession");
   assert.equal(response.status, 200);
 
   const html = await response.text();
-  assert.match(html, /花为什么/);
-  assert.match(html, /挡住了脸/);
-  assert.match(html, /READING INDEX/);
-  assert.match(html, /打开 Obsession 海报暗房/);
-  assert.match(html, /微信购票入口即将开放/);
+  assert.doesNotMatch(html, /花为什么|挡住了脸|READING INDEX/);
+  assert.match(html, /暂无已发布内容/);
+  assert.match(html, /\?section=tools/);
+  assert.match(html, /original-poster\.png/);
 });
 
 test("server-renders the Obsession photo booth on its film route", async () => {

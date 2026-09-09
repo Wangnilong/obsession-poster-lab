@@ -52,15 +52,6 @@ export const editorialIssues: EditorialIssue[] = [
     },
     entries: [
       {
-        eyebrow: "本期专题 / 04 MIN",
-        title: "花为什么挡住了脸",
-        description:
-          "从原版海报的构图出发，读懂这部电影如何处理凝视、占有与消失。",
-        meta: "EDITORIAL",
-        href: "/issues/obsession/",
-        kind: "story",
-      },
-      {
         eyebrow: "互动企划 / ON DEVICE",
         title: "把自己放进电影里",
         description:

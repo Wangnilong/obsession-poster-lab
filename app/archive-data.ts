@@ -66,29 +66,8 @@ export const archiveFilms: ArchiveFilm[] = [
     background: "#0a0909",
     foreground: "#f0ebe1",
     sections: {
-      articles: [
-        {
-          title: "花为什么挡住了脸？",
-          meta: "ISSUE NOTE 01 · 5 MIN",
-          copy: "从原始海报、身体姿态与观看关系，重新进入 Obsession 的视觉逻辑。",
-          href: "/issues/obsession/",
-          action: "阅读全文",
-        },
-      ],
-      photos: [
-        {
-          title: "活动主视觉",
-          meta: "OBSESSION · ISSUE 01",
-          image: "/original-poster.png",
-          imageAlt: "Obsession 活动主视觉",
-        },
-        {
-          title: "海报暗房成片",
-          meta: "PARTICIPANT POSTER",
-          image: "/obsession-darkroom-ai.png",
-          imageAlt: "参与者制作的 Obsession 海报",
-        },
-      ],
+      articles: [],
+      photos: [],
       tools: [
         {
           title: "Obsession 海报暗房",
@@ -98,15 +77,7 @@ export const archiveFilms: ArchiveFilm[] = [
           action: "打开工具",
         },
       ],
-      merch: [
-        {
-          title: "A3 电影海报",
-          meta: "PRINT OBJECT 01",
-          copy: "保留 Obsession 标题、电影颗粒与现场参与者肖像的打印版本。",
-          image: "/original-poster.png",
-          imageAlt: "Obsession A3 电影海报",
-        },
-      ],
+      merch: [],
     },
   },
   {
@@ -121,27 +92,8 @@ export const archiveFilms: ArchiveFilm[] = [
     background: "#11100c",
     foreground: "#f5f0e5",
     sections: {
-      articles: [
-        {
-          title: "文章将在散场后留下",
-          meta: "COMING AFTER THE SCREENING",
-          copy: "活动记录、映后讨论与参与者作品会在这里继续更新。",
-        },
-      ],
-      photos: [
-        {
-          title: "Death List Five",
-          meta: "VISUAL REFERENCE",
-          image: "/kill-bill/death-list-still.jpg",
-          imageAlt: "电影中的 Death List Five 画面",
-        },
-        {
-          title: "暗杀名单物料",
-          meta: "PRINT TEST",
-          image: "/kill-bill/death-list-reference.jpg",
-          imageAlt: "纸质暗杀名单和 Kill Bill 海报",
-        },
-      ],
+      articles: [],
+      photos: [],
       tools: [
         {
           title: "制作暗杀名单",
@@ -158,15 +110,7 @@ export const archiveFilms: ArchiveFilm[] = [
           action: "打开工具",
         },
       ],
-      merch: [
-        {
-          title: "Death List Five",
-          meta: "PRINT OBJECT 01",
-          copy: "可以替换第五个名字的纸质名单。",
-          image: "/kill-bill/death-list-reference.jpg",
-          imageAlt: "Death List Five 纸质名单",
-        },
-      ],
+      merch: [],
     },
   },
 ];
