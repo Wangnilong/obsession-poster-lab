@@ -50,6 +50,7 @@ export type ArchiveFilm = {
   location?: string;
   summary?: string;
   status?: "draft" | "published";
+  ticketUrl?: string;
   sections: Record<ArchiveSection, ArchiveEntry[]>;
 };
 

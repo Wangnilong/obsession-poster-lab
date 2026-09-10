@@ -4,6 +4,7 @@
 
 import { useEffect } from "react";
 import HomeActivityTimeline from "./archive-timeline";
+import SiteHomeNavigation from "./site-home-navigation";
 
 const screeningFlow = [
   ["01", "选片", "找到值得被看见的作品"],
@@ -75,12 +76,7 @@ export default function SiteHome() {
         <a className="intro42-logo" href="/" aria-label="宇宙放映42 首页">
           <img src="/cosmos42/logo.png" width={1080} height={190} alt="宇宙放映" />
         </a>
-        <nav aria-label="主页导航">
-          <a href="#what">我们做什么</a>
-          <a href="/archive/">往期活动</a>
-          <a href="#activity-calendar">活动日历</a>
-          <a href="/kill-bill/">下一场活动</a>
-        </nav>
+        <SiteHomeNavigation />
         <a className="intro42-now" href="/kill-bill/">
           下一场 <span>02</span>
         </a>

@@ -218,3 +218,16 @@ test('chunked uploads resume safely, verify integrity, and keep photos private u
   assert.equal([...records.values()].filter(row => row.section === 'photo-submissions' && row.status === 'pending').length, 1);
   assert.equal((await publicRead(run, { film: 'kill-bill', section: 'photos' })).entries.length, 0);
 });
+
+test('ticket links persist with activities and reject executable URL schemes', async () => {
+  const { run } = service('2084617266415722497');
+  const catalog = (await run({ action: 'events-get' })).catalog;
+  const ticketUrl = 'https://wxaurl.cn/example';
+  const result = await run({ action: 'events-save', catalog: { ...catalog, events: catalog.events.map(item => ({ ...item, ticketUrl })) } });
+  assert.equal(result.ok, true, result.message);
+  assert.equal((await publicRead(run, { action: 'events' })).events[0].ticketUrl, ticketUrl);
+  const invalid = { ...result.catalog, events: result.catalog.events.map(item => ({ ...item, ticketUrl: 'javascript:alert(1)' })) };
+  assert.equal((await run({ action: 'events-save', catalog: invalid })).ok, false);
+  const scheme = { ...result.catalog, events: result.catalog.events.map(item => ({ ...item, ticketUrl: 'weixin://dl/business/?t=example' })) };
+  assert.equal((await run({ action: 'events-save', catalog: scheme })).ok, true);
+});

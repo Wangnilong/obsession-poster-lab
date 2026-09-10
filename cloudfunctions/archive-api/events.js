@@ -23,7 +23,14 @@ function eventsService(db) {
       const clean = (key, max) => String(event[key] || "").replace(/[<>\u0000-\u001f]/g, "").trim().slice(0, max);
       const title = clean("title", 100), zhTitle = clean("zhTitle", 100);
       if (!title || !zhTitle) throw new Error("请填写活动名称");
-      return { slug: event.slug, title, zhTitle, issue: clean("issue", 20), date: event.date || "", location: clean("location", 200), summary: clean("summary", 1000), status: event.status };
+      const ticketUrl = String(event.ticketUrl || "").trim();
+      if (ticketUrl) {
+        let url;
+        try { url = new URL(ticketUrl); } catch { throw new Error("请填写完整的购票链接"); }
+        const wechat = url.protocol === "weixin:" && url.hostname === "dl" && url.pathname === "/business/" && Boolean(url.searchParams.get("t"));
+        if (ticketUrl.length > 2000 || url.username || url.password || (url.protocol !== "https:" && !wechat)) throw new Error("购票链接须为 HTTPS 链接或微信小程序跳转链接");
+      }
+      return { slug: event.slug, title, zhTitle, issue: clean("issue", 20), date: event.date || "", location: clean("location", 200), summary: clean("summary", 1000), ticketUrl, status: event.status };
     });
     await db.runTransaction(async tx => {
       const doc = tx.collection("archive_content").doc("event-catalog");

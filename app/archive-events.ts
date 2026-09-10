@@ -1,5 +1,5 @@
 import { archiveFilms, type ArchiveFilm } from "./archive-data";
-export type EventRecord = { slug: string; title: string; zhTitle: string; issue: string; date: string; location: string; summary: string; status: "draft" | "published" };
+export type EventRecord = { slug: string; title: string; zhTitle: string; issue: string; date: string; location: string; summary: string; ticketUrl?: string; status: "draft" | "published" };
 export type EventCatalog = { revision: number; events: EventRecord[] };
 export function eventFilm(event: EventRecord): ArchiveFilm {
   const base = archiveFilms.find(film => film.slug === event.slug);
