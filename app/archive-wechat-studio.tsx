@@ -60,11 +60,31 @@ export default function ArchiveWechatStudio({ films, initialFilm, username, onOp
     } catch (cause) { setError(cause instanceof Error ? cause.message : "保存失败，转换结果仍保留"); }
     finally { setBusy(false); }
   };
-  const download = () => {
+  const download = async () => {
     if (!converted) return;
-    const documentHtml = `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(converted.title)}</title><style>body{max-width:760px;margin:40px auto;padding:24px;font-family:system-ui,sans-serif;line-height:1.9;color:#222}img{max-width:100%;height:auto}h1{line-height:1.4}table{max-width:100%}</style><h1>${escape(converted.title)}</h1>${converted.articleHtml}</html>`;
-    const objectUrl = URL.createObjectURL(new Blob([documentHtml], { type: "text/html;charset=utf-8" }));
-    const link = document.createElement("a"); link.href = objectUrl; link.download = `${converted.title.replace(/[\\/:*?"<>|]/g, "-").slice(0, 80)}.html`; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    setBusy(true); setError(""); setMessage("正在把图片打包进网页…");
+    try {
+      const container = document.createElement("div"); container.innerHTML = converted.articleHtml;
+      const images = Array.from(container.querySelectorAll("img"));
+      const cached = new Map<string, string>();
+      for (const img of images) {
+        const src = img.src;
+        if (!cached.has(src)) {
+          const response = await fetch(src, { credentials: "omit", signal: AbortSignal.timeout(20000) });
+          if (!response.ok) throw new Error("图片暂时无法下载，请重试；已保存的草稿不受影响");
+          const blob = await response.blob();
+          if (!blob.type.startsWith("image/") || blob.size > 10 * 1024 * 1024) throw new Error("图片无法打包，请从活动草稿查看");
+          const data = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("图片读取失败")); reader.readAsDataURL(blob); });
+          cached.set(src, data);
+        }
+        img.src = cached.get(src)!; img.removeAttribute("data-file-id");
+      }
+      const documentHtml = `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(converted.title)}</title><style>body{max-width:760px;margin:40px auto;padding:24px;font-family:system-ui,sans-serif;line-height:1.9;color:#222}img{max-width:100%;height:auto}h1{line-height:1.4}table{max-width:100%}</style><h1>${escape(converted.title)}</h1>${container.innerHTML}</html>`;
+      const objectUrl = URL.createObjectURL(new Blob([documentHtml], { type: "text/html;charset=utf-8" }));
+      const link = document.createElement("a"); link.href = objectUrl; link.download = `${converted.title.replace(/[\\/:*?"<>|]/g, "-").slice(0, 80)}.html`; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setMessage("网页已下载，文字与图片可离线查看。保存到活动草稿后还可继续编辑。");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "下载失败，转换结果仍保留"); }
+    finally { setBusy(false); }
   };
   return <section className="cms-studio cms-converter"><header className="cms-heading"><div><small>ARTICLE CONVERTER</small><h1>公众号转网页</h1></div></header>
     <p>复制公众号文章的图文，粘贴到左侧。转换后可预览、下载网页，或保存到活动草稿。</p>
@@ -73,7 +93,7 @@ export default function ArchiveWechatStudio({ films, initialFilm, username, onOp
       <label>公众号原文链接{mode === "content" && "（选填）"}<input type="url" value={url} placeholder="https://mp.weixin.qq.com/s/…" onChange={event => { setUrl(event.target.value); change(); }} /></label>
     </fieldset>
     <div className="cms-converter-columns"><section><h2>{mode === "content" ? "粘贴公众号图文" : "链接导入"}</h2><div hidden={mode !== "content"}><div ref={input} className="cms-paste-surface" role="textbox" aria-label="公众号图文内容" aria-multiline="true" contentEditable={!busy} suppressContentEditableWarning onPaste={paste} onDrop={event => event.preventDefault()} onInput={() => { setHtml(input.current?.innerHTML || ""); change(); }} /></div>{mode === "link" && <p>输入原文链接后点击转换。如果微信要求验证，可切换到“粘贴图文”，复制正文继续处理。</p>}<button type="button" className="cms-primary" disabled={busy || !films.some(item => item.slug === film) || (mode === "content" ? !title.trim() || !html.trim() : !url.trim())} onClick={() => void convert()}>{busy ? "处理中…" : "转换为网页 →"}</button><p className="cms-converter-help">支持文字、图片和基本排版。微信视频、小程序、抽奖及留言请在原文中使用；复制时请带上所需图片。</p></section>
-      <section><h2>网页预览</h2>{converted ? <><article className="cms-converted-page"><h1>{converted.title}</h1><div className="archive-article-rich" dangerouslySetInnerHTML={{ __html: converted.articleHtml }} /></article><div className="cms-actions"><button type="button" className="cms-primary" disabled={busy || Boolean(savedId)} onClick={() => void save()}>{savedId ? "已保存草稿" : "保存到活动草稿"}</button><button type="button" disabled={busy} onClick={download}>下载网页</button>{savedId && <button type="button" disabled={busy} onClick={() => onOpen(converted.film)}>进入图文编辑器</button>}</div><p>下载的网页图片需要联网显示；活动草稿中的图片由网站持续管理。</p></> : <div className="cms-converter-empty">转换后在这里核对网页效果</div>}</section></div>
+      <section><h2>网页预览</h2>{converted ? <><article className="cms-converted-page"><h1>{converted.title}</h1><div className="archive-article-rich" dangerouslySetInnerHTML={{ __html: converted.articleHtml }} /></article><div className="cms-actions"><button type="button" className="cms-primary" disabled={busy || Boolean(savedId)} onClick={() => void save()}>{savedId ? "已保存草稿" : "保存到活动草稿"}</button><button type="button" disabled={busy} onClick={() => void download()}>下载网页</button>{savedId && <button type="button" disabled={busy} onClick={() => onOpen(converted.film)}>进入图文编辑器</button>}</div><p>下载会将图片一起打包；活动草稿可继续编辑和发布。</p></> : <div className="cms-converter-empty">转换后在这里核对网页效果</div>}</section></div>
     {message && <p className="cms-notice" role="status">{message}</p>}{error && <p className="cms-error" role="alert">{error}</p>}
   </section>;
 }
