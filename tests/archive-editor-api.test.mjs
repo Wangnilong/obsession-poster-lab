@@ -76,6 +76,30 @@ test("Word formatting survives draft, reopen, publish and republish without chan
 const { defaultPresentation, imageKeys } = require('./presentation');
 const { checkedUrl, parseWechat, importWechat } = require('./wechat');
 const { parseWechatContent, importWechatContent } = require('./wechat');
+test('converted drafts survive response retries without duplicates or overwriting later edits', async () => {
+  const {run, records} = service('2084617266415722497');
+  const input = {action:'convert-wechat',film:'kill-bill',mode:'content',title:'自动草稿',html:'<p>正文</p>',url:'',saveDraft:true,requestId:'f5a345c3-c5cb-4892-b95e-123456789abc'};
+  const first = await run(input);
+  assert.equal(first.ok, true, first.message); assert.equal(first.saved, true);
+  assert.equal(records.size, 1); assert.equal(records.get(first.id).status, 'draft');
+  records.get(first.id).title = '编辑器调整后的标题';
+  const retried = await run(input);
+  assert.equal(retried.id, first.id); assert.equal(retried.title, '编辑器调整后的标题'); assert.equal(records.size, 1);
+  assert.equal((await run({...input, html:'<p>另一次内容</p>'})).ok, false);
+  const live = JSON.parse((await run({httpMethod:'GET',queryStringParameters:{film:'kill-bill',section:'articles'}})).body);
+  assert.equal(live.entries.length, 0);
+});
+test('failed conversion waits for in-flight uploads before cleaning only its own images', async () => {
+  const removed = [], uploaded = [];
+  const cloud = { uploadFile: async () => { await new Promise(resolve => setTimeout(resolve, 5)); uploaded.push('cloud://new-image'); return {fileID:'cloud://new-image'}; }, deleteFile: async ({fileList}) => removed.push(...fileList) };
+  await assert.rejects(importWechatContent(cloud, {title:'标题',html:'<p>正文</p><img src="https://mmbiz.qpic.cn/a.png"><img src="https://mmbiz.qpic.cn/b.png">'}, 'kill-bill', async url => {if(url.endsWith('b.png'))throw new Error('Download failed'); return {buffer:Buffer.from('image'),type:'image/png'};}), /Download failed/);
+  assert.deepEqual(removed, uploaded); assert.equal(removed.length, 1);
+});
+test('WeChat interactive embeds retain a safe source link in their original position', async () => {
+  const result = await importWechatContent({}, {title:'标题',url:'https://mp.weixin.qq.com/s/example',html:'<p>开始</p><mp-common-videosnap><iframe src="javascript:alert(1)"></iframe></mp-common-videosnap><p>结束</p>'}, 'kill-bill');
+  assert.match(result.articleHtml, /开始.*href="https:\/\/mp.weixin.qq.com\/s\/example".*公众号原文查看.*结束/);
+  assert.doesNotMatch(result.articleHtml, /iframe|javascript:|mp-common/);
+});
 test('pasted WeChat content validates images, sanitizes scripts, and converts without publishing', async () => {
   assert.throws(() => parseWechatContent({ title: '标题', html: '<img src="http://127.0.0.1/private">' }));
   assert.throws(() => parseWechatContent({ title: '标题', html: '<p></p>' }));

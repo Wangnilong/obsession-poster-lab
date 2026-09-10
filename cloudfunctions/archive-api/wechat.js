@@ -12,6 +12,20 @@ function checkedUrl(input, image = false) {
   if (url.protocol !== "https:" || url.username || url.password || url.port || (image ? !imageHosts.has(url.hostname) : url.hostname !== "mp.weixin.qq.com" || !/^\/s(?:\/|$)/.test(url.pathname))) throw new Error(image ? "文章包含不支持自动转存的外部图片，请手动上传" : "请使用 mp.weixin.qq.com 的文章链接");
   return url;
 }
+function preserveEmbeds(html, sourceUrl = "") {
+  const doc = parseDocument(html, { withStartIndices: true, withEndIndices: true });
+  const ranges = [];
+  const tags = new Set(["iframe", "video", "mp-common-videosnap", "mpvoice", "mp-audio", "mp-weapp"]);
+  const visit = node => {
+    if (tags.has(node.name)) { ranges.push([node.startIndex, node.endIndex + 1]); return; }
+    node.children?.forEach(visit);
+  };
+  visit(doc);
+  const link = sourceUrl ? checkedUrl(sourceUrl).href.replace(/&/g, "&amp;").replace(/"/g, "&quot;") : "";
+  const placeholder = link ? `<p><a href="${link}">微信视频、音频或小程序：请前往公众号原文查看</a></p>` : "<p>微信视频、音频或小程序：请补充公众号原文链接后查看</p>";
+  for (const [start, end] of ranges.reverse()) html = html.slice(0, start) + placeholder + html.slice(end);
+  return html;
+}
 function download(input, { image = false, max = 3 * 1024 * 1024, deadline = Date.now() + 12000, redirects = 0 } = {}) {
   const url = checkedUrl(input, image);
   if (Date.now() >= deadline) return Promise.reject(new Error("公众号读取超时，请稍后重试"));
@@ -61,7 +75,7 @@ function parseWechatContent(input) {
   const title = String(input.title || "").replace(/[<>\u0000-\u001f]/g, "").trim().slice(0, 200);
   if (!title) throw new Error("请填写文章标题");
   const sourceUrl = input.url ? checkedUrl(input.url).href : "";
-  const clean = sanitize(html, { allowedTags: [...articleFormat.tags, "section"], allowedAttributes: { "*": ["style"], img: ["src", "data-src", "alt", "width"], a: ["href", "title"], td: ["colspan", "rowspan"], th: ["colspan", "rowspan"] } });
+  const clean = sanitize(preserveEmbeds(html, sourceUrl), { allowedTags: [...articleFormat.tags, "section"], allowedAttributes: { "*": ["style"], img: ["src", "data-src", "alt", "width"], a: ["href", "title"], td: ["colspan", "rowspan"], th: ["colspan", "rowspan"] } });
   const article = parseWechat(`<h1 id="activity-name">文章</h1><div id="js_content">${clean}</div>`);
   if (!sanitize(html, { allowedTags: [], allowedAttributes: {} }).trim() && !article.images.length) throw new Error("正文还是空的");
   return { ...article, title, sourceUrl };
@@ -72,8 +86,9 @@ async function importWechatContent(cloud, input, film, fetchFile = download) {
 }
 async function storeWechat(cloud, article, url, film, fetchFile, deadline) {
   const files = new Map(); let total = 0;
+  try {
   for (let offset = 0; offset < article.images.length; offset += 3) {
-    await Promise.all(article.images.slice(offset, offset + 3).map(async src => {
+    const batch = await Promise.allSettled(article.images.slice(offset, offset + 3).map(async src => {
       const file = await fetchFile(src, { image: true, max: 10 * 1024 * 1024, deadline });
       const extensions = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp" };
       const extension = extensions[file.type];
@@ -82,11 +97,13 @@ async function storeWechat(cloud, article, url, film, fetchFile, deadline) {
       const uploaded = await cloud.uploadFile({ cloudPath: `archive/${film}/articles/wechat-${crypto.randomUUID()}.${extension}`, fileContent: file.buffer });
       files.set(src, uploaded.fileID);
     }));
+    const failed = batch.find(item => item.status === "rejected");
+    if (failed) throw failed.reason;
   }
   const urls = files.size ? await cloud.getTempFileURL({ fileList: [...files.values()] }) : { fileList: [] };
   const temporary = new Map((urls.fileList || []).map(item => [item.fileID, item.tempFileURL]));
   if ([...files.values()].some(id => !temporary.get(id))) throw new Error("图片链接生成失败，请重试转换");
-  const withImages = sanitize(article.html, { allowedTags: [...articleFormat.tags, "section"], allowedAttributes: false, transformTags: {
+  const withImages = sanitize(preserveEmbeds(article.html, url), { allowedTags: [...articleFormat.tags, "section"], allowedAttributes: false, transformTags: {
     section: "div", img: (tagName, attributes) => {
       const source = attributes["data-src"] || attributes.src || "";
       const key = source.startsWith("//") ? `https:${source}` : source.replace(/^http:/, "https:");
@@ -98,5 +115,9 @@ async function storeWechat(cloud, article, url, film, fetchFile, deadline) {
   const articleHtml = sanitizeArticle(withImages + sourceLink);
   if (articleHtml.length > 500000) throw new Error("正文过长，请分篇导入");
   return { title: article.title, articleHtml, images: files.size };
+  } catch (error) {
+    if (files.size) { try { await cloud.deleteFile({ fileList: [...files.values()] }); } catch { console.warn("WeChat failed conversion image cleanup failed"); } }
+    throw error;
+  }
 }
-module.exports = { checkedUrl, parseWechat, importWechat, parseWechatContent, importWechatContent };
+module.exports = { checkedUrl, parseWechat, importWechat, parseWechatContent, importWechatContent, preserveEmbeds };

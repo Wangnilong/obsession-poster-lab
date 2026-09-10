@@ -322,8 +322,8 @@ export async function loadEditorDocument(film: string, section: ArchiveSection) 
 export async function importWechatArticle(film: string, url: string) {
   return editorRequest<{ id: string; title: string; images: number }>("import-wechat", { film, url });
 }
-export async function convertWechatArticle(input: { film: string; mode: "content" | "link"; title: string; html: string; url: string }) {
-  return editorRequest<{ title: string; articleHtml: string; images: number }>("convert-wechat", input);
+export async function convertWechatArticle(input: { film: string; mode: "content" | "link"; title: string; html: string; url: string; requestId: string; saveDraft: true }) {
+  return editorRequest<{ title: string; articleHtml: string; images: number; id: string; saved: boolean }>("convert-wechat", input);
 }
 
 export type AudiencePhoto = { id: string; film: string; displayName: string; caption: string; image: string; status: "pending" | "approved" | "rejected"; revision: number; createdAt: number };

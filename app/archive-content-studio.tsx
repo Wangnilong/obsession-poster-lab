@@ -17,7 +17,7 @@ function legacyHtml(record: PublishedArchiveRecord) {
   }).join("") || `<p>${escape(record.copy || "")}</p>`;
 }
 
-export default function ArchiveContentStudio({ film, activeFilm, section, username, role }: { film: string; activeFilm: ArchiveFilm; section: ArchiveSection; username: string; role: ArchiveRole }) {
+export default function ArchiveContentStudio({ film, activeFilm, section, username, role, initialRecordId = "" }: { initialRecordId?: string; film: string; activeFilm: ArchiveFilm; section: ArchiveSection; username: string; role: ArchiveRole }) {
   const [records, setRecords] = useState<PublishedArchiveRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,12 +55,19 @@ export default function ArchiveContentStudio({ film, activeFilm, section, userna
     return () => { window.removeEventListener("beforeunload", warn); window.removeEventListener("cms-before-navigate", navigate); };
   }, [dirty, queue.length, busy, imageBusy]);
 
-  const openArticle = (record: PublishedArchiveRecord | null) => {
+  const openArticle = useCallback((record: PublishedArchiveRecord | null) => {
     const hasPending = Boolean(record?.pendingTitle);
     setCurrent(record); setTitle(hasPending ? record!.pendingTitle! : record?.title || ""); setSummary(hasPending ? record!.pendingCopy || "" : record?.copy || "");
     const body = record ? hasPending ? record.pendingHtml || "" : legacyHtml(record) : "";
     setHtml(body); setInitialHtml(body); setDocumentKey(value => value + 1); setEditing(true); setDirty(false); setMessage("");
-  };
+  }, []);
+  const openedInitial = useRef(false);
+  useEffect(() => {
+    if (!initialRecordId || loading || error || openedInitial.current) return;
+    const record = records.find(item => item._id === initialRecordId);
+    const timer = setTimeout(() => { openedInitial.current = true; if (record) openArticle(record); else setMessage("这篇草稿暂时没有找到，请重新加载列表。"); }, 0);
+    return () => clearTimeout(timer);
+  }, [initialRecordId, loading, error, records, openArticle]);
   const saveArticle = async (publish: boolean) => {
     if (busy || imageBusy) return;
     if (!title.trim()) { setMessage("请填写文章标题"); return; }

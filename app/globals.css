@@ -6030,6 +6030,9 @@ a.cf42-archive-row:hover .cf42-archive-title em {
 .cms-paste-surface img, .cms-converted-page img { max-width: 100%; height: auto; }
 .cms-paste-surface:focus-visible { outline: 2px solid #b09530; outline-offset: 2px; }
 .cms-converted-page h1 { font-size: 26px; line-height: 1.5; margin: 0 0 28px; }
+.cms-converted-page.is-mobile-preview { max-width: 390px; margin-left: auto; margin-right: auto; padding: 20px; }
+.cms-preview-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.cms-preview-heading h2 { margin-bottom: 0; }
 .cms-converter-empty { min-height: 420px; display: grid; place-items: center; border: 1px dashed #aaa; color: #666; padding: 28px; }
 .cms-converter-help { color: #666; font-size: 14px; line-height: 1.7; }
 @media (max-width: 1100px) { .cms-converter-columns { grid-template-columns: 1fr; } }
