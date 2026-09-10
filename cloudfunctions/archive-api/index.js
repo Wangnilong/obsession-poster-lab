@@ -6,7 +6,7 @@ const JSZip = require("jszip");
 const { sanitizeArticle } = require("./article-html");
 const { imageKeys, presentationService } = require("./presentation");
 const { eventsService } = require("./events");
-const { importWechat } = require("./wechat");
+const { importWechat, importWechatContent } = require("./wechat");
 const { photoSubmissionsService } = require("./photo-submissions");
 
 const cloud = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
@@ -410,6 +410,16 @@ async function editorContent(event) {
 }
 
 exports.main = async (event = {}) => {
+  if (!event.httpMethod && event.action === "convert-wechat") {
+    try {
+      requireAdmin();
+      if (!await events.exists(event.film)) throw new Error("请先保存活动");
+      const result = event.mode === "content"
+        ? await importWechatContent(cloud, event, event.film)
+        : await importWechat(cloud, event.url, event.film);
+      return { ok: true, ...result };
+    } catch (error) { return { ok: false, message: error.message || "转换失败，原内容仍保留，可重试" }; }
+  }
   if (!event.httpMethod && ["photo-submissions-list", "photo-submissions-review"].includes(event.action)) {
     try {
       const uid = requireAdmin();

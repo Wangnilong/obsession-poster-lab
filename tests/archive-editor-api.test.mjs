@@ -75,6 +75,24 @@ test("Word formatting survives draft, reopen, publish and republish without chan
 });
 const { defaultPresentation, imageKeys } = require('./presentation');
 const { checkedUrl, parseWechat, importWechat } = require('./wechat');
+const { parseWechatContent, importWechatContent } = require('./wechat');
+test('pasted WeChat content validates images, sanitizes scripts, and converts without publishing', async () => {
+  assert.throws(() => parseWechatContent({ title: '标题', html: '<img src="http://127.0.0.1/private">' }));
+  assert.throws(() => parseWechatContent({ title: '标题', html: '<p></p>' }));
+  assert.throws(() => parseWechatContent({ title: '', html: '<p>正文</p>' }));
+  const uploads = [];
+  const cloud = { uploadFile: async item => { uploads.push(item); return {fileID: 'cloud://test/' + uploads.length}; }, getTempFileURL: async ({fileList}) => ({fileList: fileList.map(fileID => ({fileID, tempFileURL: 'https://images.example/saved.png'}))}) };
+  const result = await importWechatContent(cloud, { title: '标题', html: '<section><h2>段落</h2><img data-src="https://mmbiz.qpic.cn/image.png" onerror="alert(1)"><script>alert(1)</script><p>结尾</p></section>' }, 'kill-bill', async () => ({buffer: Buffer.from('image'), type:'image/png'}));
+  assert.equal(result.images, 1); assert.equal(uploads.length, 1);
+  assert.match(result.articleHtml, /data-file-id="cloud:\/\/test\/1"/);
+  assert.match(result.articleHtml, /段落.*<img.*结尾/);
+  assert.doesNotMatch(result.articleHtml, /onerror|script|alert\(/);
+  for (const uid of ['', '2084617329225424898']) assert.equal((await service(uid).run({action:'convert-wechat', film:'kill-bill', mode:'content',title:'标题',html:'<p>正文</p>'})).ok, false);
+  const {run,records} = service('2084617266415722497');
+  const preview = await run({action:'convert-wechat',film:'kill-bill',mode:'content',title:'标题',html:'<p>正文</p>'});
+  assert.equal(preview.ok, true, preview.message); assert.equal(records.size, 0);
+  assert.equal((await run({action:'convert-wechat',film:'missing',mode:'content',title:'标题',html:'<p>正文</p>'})).ok, false);
+});
 const publicRead = async (run, query) => { const response = await run({ httpMethod: 'GET', queryStringParameters: query }); return { status: response.statusCode, ...JSON.parse(response.body) }; };
 
 test('layout changes keep content intact and reject stale revisions and foreign keys', async () => {

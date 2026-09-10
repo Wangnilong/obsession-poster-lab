@@ -53,6 +53,24 @@ async function importWechat(cloud, url, film, fetchFile = download) {
   checkedUrl(url);
   const page = await fetchFile(url, { deadline });
   const article = parseWechat(page.buffer.toString("utf8"));
+  return storeWechat(cloud, article, url, film, fetchFile, deadline);
+}
+function parseWechatContent(input) {
+  const html = String(input.html || "");
+  if (!html.trim() || html.length > 500000) throw new Error("请粘贴正文，单篇内容不能超过 50 万字符");
+  const title = String(input.title || "").replace(/[<>\u0000-\u001f]/g, "").trim().slice(0, 200);
+  if (!title) throw new Error("请填写文章标题");
+  const sourceUrl = input.url ? checkedUrl(input.url).href : "";
+  const clean = sanitize(html, { allowedTags: [...articleFormat.tags, "section"], allowedAttributes: { "*": ["style"], img: ["src", "data-src", "alt", "width"], a: ["href", "title"], td: ["colspan", "rowspan"], th: ["colspan", "rowspan"] } });
+  const article = parseWechat(`<h1 id="activity-name">文章</h1><div id="js_content">${clean}</div>`);
+  if (!sanitize(html, { allowedTags: [], allowedAttributes: {} }).trim() && !article.images.length) throw new Error("正文还是空的");
+  return { ...article, title, sourceUrl };
+}
+async function importWechatContent(cloud, input, film, fetchFile = download) {
+  const article = parseWechatContent(input);
+  return storeWechat(cloud, article, article.sourceUrl, film, fetchFile, Date.now() + 45000);
+}
+async function storeWechat(cloud, article, url, film, fetchFile, deadline) {
   const files = new Map(); let total = 0;
   for (let offset = 0; offset < article.images.length; offset += 3) {
     await Promise.all(article.images.slice(offset, offset + 3).map(async src => {
@@ -67,6 +85,7 @@ async function importWechat(cloud, url, film, fetchFile = download) {
   }
   const urls = files.size ? await cloud.getTempFileURL({ fileList: [...files.values()] }) : { fileList: [] };
   const temporary = new Map((urls.fileList || []).map(item => [item.fileID, item.tempFileURL]));
+  if ([...files.values()].some(id => !temporary.get(id))) throw new Error("图片链接生成失败，请重试转换");
   const withImages = sanitize(article.html, { allowedTags: [...articleFormat.tags, "section"], allowedAttributes: false, transformTags: {
     section: "div", img: (tagName, attributes) => {
       const source = attributes["data-src"] || attributes.src || "";
@@ -75,9 +94,9 @@ async function importWechat(cloud, url, film, fetchFile = download) {
       return { tagName, attribs: { src: temporary.get(id) || "", "data-file-id": id || "", alt: attributes.alt || "", style: attributes.style || "" } };
     },
   } });
-  const sourceLink = `<p><a href="${checkedUrl(url).href.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}">公众号原文</a></p>`;
+  const sourceLink = url ? `<p><a href="${checkedUrl(url).href.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}">公众号原文</a></p>` : "";
   const articleHtml = sanitizeArticle(withImages + sourceLink);
   if (articleHtml.length > 500000) throw new Error("正文过长，请分篇导入");
   return { title: article.title, articleHtml, images: files.size };
 }
-module.exports = { checkedUrl, parseWechat, importWechat };
+module.exports = { checkedUrl, parseWechat, importWechat, parseWechatContent, importWechatContent };
