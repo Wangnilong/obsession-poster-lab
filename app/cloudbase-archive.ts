@@ -315,6 +315,16 @@ export async function loadArchiveEvents() {
   return ((await response.json()) as { events: EventRecord[] }).events.map(eventFilm);
 }
 export async function getEditorEvents() { return (await editorRequest<{ catalog: EventCatalog }>("events-get", {})).catalog; }
+export async function loadHomeSettings() {
+  const config = await loadConfig();
+  if (!config.publicApiUrl) throw new Error("首页内容服务尚未连接");
+  const endpoint = new URL(config.publicApiUrl); endpoint.searchParams.set("action", "home");
+  const response = await fetch(endpoint, { cache: "no-store" });
+  if (!response.ok) throw new Error("首页图片加载失败");
+  return ((await response.json()) as { settings: import("./site-home-settings").HomeSettings }).settings;
+}
+export async function getEditorHomeSettings() { return (await editorRequest<{ settings: import("./site-home-settings").HomeSettings }>("home-get", {})).settings; }
+export async function saveHomeSettings(settings: import("./site-home-settings").HomeSettings) { return (await editorRequest<{ settings: import("./site-home-settings").HomeSettings }>("home-save", { settings })).settings; }
 export async function saveEditorEvents(catalog: EventCatalog) { return (await editorRequest<{ catalog: EventCatalog }>("events-save", { catalog })).catalog; }
 export async function loadEditorDocument(film: string, section: ArchiveSection) {
   return (await editorRequest<{ document: { entries: ArchiveEntry[]; presentation: ArchivePresentation } }>("event-preview", { film, section })).document;

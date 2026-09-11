@@ -5,7 +5,6 @@
 import { archiveFilms, type ArchiveFilm } from "./archive-data";
 import { useEffect, useState } from "react";
 import { loadArchivePresentations, loadArchiveEvents } from "./cloudbase-archive";
-import { eventHref } from "./archive-events";
 import { ActivityTimeline } from "./archive-timeline";
 import type { ArchivePresentation } from "./archive-presentation";
 
@@ -31,21 +30,6 @@ export default function ArchivePage() {
         <a href="/archive/upload/" className="archive-login-link">上传活动照片 ↗</a>
       </header>
 
-      <section className="archive-poster-grid" aria-label="选择一部电影">
-        {films.map((film) => (
-          <a
-            key={film.slug}
-            href={eventHref(film.slug)}
-            className="archive-poster-card"
-            aria-label={`${film.issue} 期 ${film.zhTitle} ${film.title}`}
-            style={{ "--card-accent": film.accent } as React.CSSProperties}
-          >
-            <img src={presentations[film.slug]?.poster || film.poster} alt={film.posterAlt} style={{ objectPosition: `${presentations[film.slug]?.posterX ?? 50}% ${presentations[film.slug]?.posterY ?? 50}%` }} />
-            <span>ISSUE {film.issue}</span>
-            <strong className="activity-poster-title">{film.zhTitle}<small>{film.date || "日期待补充"}</small></strong>
-          </a>
-        ))}
-      </section>
       {error && <p role="alert">{error}</p>}
       <ActivityTimeline films={films} presentations={presentations} />
 

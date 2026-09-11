@@ -872,3 +872,14 @@ a.archive-entry:focus-visible { transform: translateY(-4px); border-color: var(-
 .cms-import-install { margin: 16px 0 24px; padding: 16px 20px; border: 1px solid #c5d5c6; border-radius: 8px; background: #eff5ed; color: #273c2c; }
 .cms-import-install summary { cursor: pointer; font-weight: 700; }
 .cms-import-install p { margin: 12px 0; }
+.cms-home-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.cms-home-card { min-width: 0; margin: 0; border: 1px solid #ccd2c9; border-radius: 8px; padding: 20px; background: #fff; }
+.cms-home-card legend { color: #263e2e; font-weight: 700; padding: 0 8px; }
+.cms-home-card > img { display: block; width: 100%; height: 260px; object-fit: cover; background: #242820; border-radius: 6px; }
+.cms-home-card label { display: grid; gap: 8px; margin: 16px 0; }
+.cms-home-card input[type=file] { max-width: 100%; }
+.cms-home-card textarea { width: 100%; box-sizing: border-box; }
+.activity-list-count { font-size: 14px; margin-left: 16px; color: #bfb99f; font-weight: 400; }
+.activity-date-pending { font-size: 14px; color: #bfb99f; margin: 0 0 14px; }
+.archive-index-page .activity-calendar-timeline { padding-block: 48px; }
+@media (max-width: 900px) { .cms-home-grid { grid-template-columns: 1fr; } }

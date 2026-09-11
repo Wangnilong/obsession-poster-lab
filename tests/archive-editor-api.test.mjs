@@ -30,6 +30,36 @@ function service(uid) {
   vm.runInNewContext(source, { require: name => name === "@cloudbase/node-sdk" ? { init: () => cloud } : require(name), exports, console: { error() {}, warn() {} }, Buffer });
   return { run: exports.main, records, uploads };
 }
+test("home images and titles persist publicly with admin authorization and revision protection", async () => {
+  for (const uid of ["", "2084617329225424898"]) {
+    const api = service(uid);
+    assert.equal((await api.run({ action: "home-get" })).ok, false);
+    assert.equal((await api.run({ action: "home-save", settings: {} })).ok, false);
+  }
+  const { run, records } = service("2084617266415722497");
+  const initial = (await run({ action: "home-get" })).settings;
+  assert.equal(initial.slots.length, 10);
+  const updated = structuredClone(initial);
+  updated.slots[1] = { ...updated.slots[1], title: "本周放映", fileID: "cloud://test/archive/home/covers/weekly.jpg", x: 20, y: 75 };
+  assert.equal((await run({ action: "home-save", settings: updated })).ok, true);
+  const publicRead = await run({ httpMethod: "GET", queryStringParameters: { action: "home" } });
+  assert.equal(publicRead.statusCode, 200);
+  const saved = JSON.parse(publicRead.body).settings;
+  assert.equal(saved.slots[1].title, "本周放映");
+  assert.equal(saved.slots[1].x, 20); assert.equal(saved.slots[1].y, 75);
+  assert.match(saved.slots[1].image, /images.example/);
+  assert.equal(saved.slots[0].image, "/cosmos42/logo.png");
+  assert.equal((await run({ action: "home-save", settings: updated })).ok, false);
+  const invalid = structuredClone(saved); invalid.slots[1].fileID = "cloud://test/archive/kill-bill/covers/other.jpg";
+  assert.equal((await run({ action: "home-save", settings: invalid })).ok, false);
+  invalid.slots[1].fileID = ""; invalid.slots[1].x = 101;
+  assert.equal((await run({ action: "home-save", settings: invalid })).ok, false);
+  assert.equal(records.get("home-settings").settings.revision, 1);
+  const reset = structuredClone(saved); reset.slots[1].fileID = "";
+  assert.equal((await run({ action: "home-save", settings: reset })).ok, true);
+  assert.equal((await run({ action: "home-get" })).settings.slots[1].image, "/kill-bill/death-list-still.jpg");
+});
+
 test("editor API requires authenticated content role and restricts photo uploader", async () => {
   const guest = service("");
   assert.equal((await guest.run({ action: "editor-list", film: "kill-bill", section: "photos" })).ok, false);

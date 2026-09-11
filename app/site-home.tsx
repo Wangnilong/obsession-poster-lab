@@ -2,9 +2,11 @@
 
 /* eslint-disable @next/next/no-img-element, @next/next/no-html-link-for-pages -- static EdgeOne/Vite routes use portable anchors */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import HomeActivityTimeline from "./archive-timeline";
 import SiteHomeNavigation from "./site-home-navigation";
+import { defaultHomeSettings } from "./site-home-settings";
+import { loadHomeSettings } from "./cloudbase-archive";
 
 const screeningFlow = [
   ["01", "选片", "找到值得被看见的作品"],
@@ -14,26 +16,6 @@ const screeningFlow = [
   ["05", "留下", "反馈、记录、社群与复看"],
 ];
 
-const programmeLines = [
-  {
-    title: "流行文化共创",
-    copy: "从《芭比》派对到哈利·波特系列观影礼，让熟悉的电影成为共同节日。",
-    image: "/cosmos42/barbie-wall.jpg",
-    alt: "《芭比》放映现场观众合影墙",
-  },
-  {
-    title: "经典与艺术实验",
-    copy: "默片现场配乐、女性影像、身体性展映和短片巡游，让放映形式本身成为创作。",
-    image: "/cosmos42/train.jpg",
-    alt: "《火车进站》影片画面",
-  },
-  {
-    title: "现实议题与本地故事",
-    copy: "社工实践、女性叙事、独立纪录片与深圳题材，让电影和真实生活重新接通。",
-    image: "/cosmos42/broad-daylight.jpg",
-    alt: "电影《白日之下》海报",
-  },
-];
 
 const collaborators = [
   ["影院 / 放映方", "万象影城、百老汇电影中心、全国艺联"],
@@ -43,6 +25,12 @@ const collaborators = [
 ];
 
 export default function SiteHome() {
+  const [settings, setSettings] = useState(defaultHomeSettings);
+  const [imageError, setImageError] = useState("");
+  const slot = (key: string) => settings.slots.find(item => item.key === key)!;
+  const imageProps = (key: string) => ({ src: slot(key).image, alt: slot(key).title, style: { objectPosition: slot(key).x + "% " + slot(key).y + "%" } });
+  const programmeLines = settings.slots.filter(item => item.key.startsWith("programme-"));
+  useEffect(() => { let active = true; loadHomeSettings().then(value => { if (active) setSettings(value); }).catch(() => { if (active) setImageError("首页图片暂时无法更新，请稍后刷新。"); }); return () => { active = false; }; }, []);
   useEffect(() => {
     const home = document.querySelector<HTMLElement>(".intro42-home");
     const sections = document.querySelectorAll<HTMLElement>("[data-reveal]");
@@ -71,10 +59,10 @@ export default function SiteHome() {
   }, []);
 
   return (
-    <main className="intro42-home">
+    <main className="intro42-home">{imageError && <p role="status">{imageError}</p>}
       <header className="intro42-header">
         <a className="intro42-logo" href="/" aria-label="宇宙放映42 首页">
-          <img src="/cosmos42/logo.png" width={1080} height={190} alt="宇宙放映" />
+          <img {...imageProps("logo")} width={1080} height={190} alt={slot("logo").title} />
         </a>
         <SiteHomeNavigation />
         <a className="intro42-now" href="/kill-bill/">
@@ -86,47 +74,44 @@ export default function SiteHome() {
         <span className="intro42-current-ghost" aria-hidden="true">02</span>
         <div className="intro42-current-copy">
           <p className="intro42-section-no">NEXT SCREENING / ISSUE 02</p>
-          <h2 id="current-title">下一场：<span>Kill Bill</span></h2>
-          <p>把名字写进暗杀名单，或者制作一张属于自己的 Killer License。</p>
+          <h2 id="current-title">下一场：<span>{slot("current").title}</span></h2>
+          <p>{slot("current").copy}</p>
           <div className="intro42-current-actions">
             <a href="/kill-bill/#death-list">制作暗杀名单 <span>↗</span></a>
             <a href="/kill-bill/#id-card">制作身份卡 <span>↗</span></a>
           </div>
         </div>
         <figure className="intro42-current-poster">
-          <img src="/kill-bill/death-list-still.jpg" alt="《杀死比尔》暗杀名单画面" />
+          <img {...imageProps("current")} alt={slot("current").title} />
           <figcaption><span>ISSUE 02</span><span>COMING NEXT</span></figcaption>
         </figure>
         <div className="intro42-current-ticker" aria-hidden="true">
-          <span>NEXT SCREENING · KILL BILL · DEATH LIST FIVE · KILLER LICENSE · COSMOS FILMS ·&nbsp;</span>
-          <span>NEXT SCREENING · KILL BILL · DEATH LIST FIVE · KILLER LICENSE · COSMOS FILMS ·&nbsp;</span>
+          <span>NEXT SCREENING · {slot("current").title.toUpperCase()} · DEATH LIST FIVE · KILLER LICENSE · COSMOS FILMS ·&nbsp;</span>
+          <span>NEXT SCREENING · {slot("current").title.toUpperCase()} · DEATH LIST FIVE · KILLER LICENSE · COSMOS FILMS ·&nbsp;</span>
         </div>
       </section>
 
       <section className="intro42-hero" aria-labelledby="intro42-title" data-reveal>
-        <img className="intro42-hero-mark" src="/cosmos42/logo.png" alt="" aria-hidden="true" />
+        <img className="intro42-hero-mark" {...imageProps("logo")} alt="" aria-hidden="true" />
         <span className="intro42-hero-orbit" aria-hidden="true" />
         <div className="intro42-hero-copy">
           <p className="intro42-kicker">宇宙放映42 · 我们正在做的事</p>
           <h1 id="intro42-title">
-            <span>把值得的电影</span>
-            <span className="intro42-outline-title">带到愿意相遇的人面前</span>
+            {slot("hero").title.split("\n").map((line, index) => <span key={index} className={index ? "intro42-outline-title" : undefined}>{line}</span>)}
           </h1>
           <div className="intro42-hero-foot">
             <p>
-              我们做的，不是把人带进影院就结束，
-              <br />
-              而是让一次共同观看有来路、有现场，也有余韵。
+              {slot("hero").copy}
             </p>
             <a href="#what">向下了解 <span>↓</span></a>
           </div>
         </div>
         <figure className="intro42-hero-image">
           <img
-            src="/cosmos42/barbie-opening.jpg"
+            {...imageProps("hero")}
             width={1080}
             height={1437}
-            alt="宇宙放映第一次活动的观众现场"
+            alt={slot("hero").title}
           />
           <figcaption>
             <strong>140</strong>
@@ -205,9 +190,9 @@ export default function SiteHome() {
         </header>
         <div className="intro42-programme-grid">
           {programmeLines.map((line, index) => (
-            <article key={line.title}>
+            <article key={line.key}>
               <figure>
-                <img className={`intro42-programme-image-${index + 1}`} src={line.image} alt={line.alt} />
+                <img className={`intro42-programme-image-${index + 1}`} {...imageProps(line.key)} alt={line.title} />
                 <span>0{index + 1}</span>
               </figure>
               <h3>{line.title}</h3>
@@ -224,12 +209,12 @@ export default function SiteHome() {
         </header>
         <div className="intro42-case-grid">
           <article className="intro42-case intro42-case-dark">
-            <img src="/cosmos42/goddess-live.jpg" alt="《神女》默片现场配乐演出" />
+            <img {...imageProps("case-live")} alt={slot("case-live").title} />
             <div>
               <p>案例一 · 经典与现场</p>
-              <h3>《神女》× 默片即兴配乐</h3>
+              <h3>{slot("case-live").title}</h3>
               <p>
-                把百年前的影像带回影院，邀请音乐家以结构化即兴进行现场配乐；银幕、演奏者与观众共同组成一次不可复制的三角对话。
+                {slot("case-live").copy}
               </p>
               <ul>
                 <li>不把经典当作静态遗产</li>
@@ -240,15 +225,15 @@ export default function SiteHome() {
           </article>
           <article className="intro42-case intro42-case-light">
             <div className="intro42-case-collage">
-              <img className="intro42-collage-poster" src="/cosmos42/broad-daylight.jpg" alt="《白日之下》电影海报" />
-              <img className="intro42-collage-person" src="/cosmos42/social-work.jpg" alt="《白日之下》映后社工实践分享" />
-              <img className="intro42-collage-notes" src="/cosmos42/broad-daylight-notes.jpg" alt="《白日之下》映后记录物料" />
+              <img className="intro42-collage-poster" {...imageProps("case-poster")} alt={slot("case-poster").title} />
+              <img className="intro42-collage-person" {...imageProps("case-person")} alt={slot("case-person").title} />
+              <img className="intro42-collage-notes" {...imageProps("case-notes")} alt={slot("case-notes").title} />
             </div>
             <div>
               <p>案例二 · 电影与真实生活</p>
-              <h3>《白日之下》× 社工实践映后</h3>
+              <h3>{slot("case-poster").title}</h3>
               <p>
-                电影揭示弱势群体处境，映后邀请一线社工从实践角度继续讨论；活动结余用于支持相关社工与公益工作。
+                {slot("case-poster").copy}
               </p>
               <strong>映后不是“附加环节”，它把银幕中的问题带回城市，也让观众知道自己可以如何继续参与。</strong>
             </div>
@@ -297,7 +282,7 @@ export default function SiteHome() {
 
       <footer className="intro42-footer">
         <a href="/" className="intro42-logo" aria-label="宇宙放映42 首页">
-          <img src="/cosmos42/logo.png" alt="宇宙放映" />
+          <img {...imageProps("logo")} alt={slot("logo").title} />
         </a>
         <p>cosmosfilm42 · 宇宙观影团</p>
         <p>© 2026</p>

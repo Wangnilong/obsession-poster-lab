@@ -10,7 +10,7 @@ export function ActivityTimeline({ films, presentations = {} }: { films: Archive
   const [month, setMonth] = useState(() => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai" }).format(new Date()).slice(0, 7));
   const [day, setDay] = useState("");
   const dated = films.filter(film => film.date).sort((a, b) => b.date!.localeCompare(a.date!));
-  const visible = day ? dated.filter(film => film.date === day) : dated;
+  const visible = day ? films.filter(film => film.date === day) : films;
   const shiftMonth = (direction: number) => {
     const [year, value] = month.split("-").map(Number);
     const next = new Date(year, value - 1 + direction, 1);
@@ -22,11 +22,11 @@ export function ActivityTimeline({ films, presentations = {} }: { films: Archive
       <div className="activity-days">{month && monthDays(month).map((date, index) => {
         const items = date ? dated.filter(film => film.date === date) : [];
         return date ? <button type="button" key={date} className={`${items.length ? "has-event" : ""}${day === date ? " is-selected" : ""}`} disabled={!items.length} aria-label={`${date}${items.length ? `，${items.length} 场活动：${items.map(item => item.zhTitle).join("、")}` : "，无活动"}`} aria-pressed={day === date} onClick={() => setDay(value => value === date ? "" : date)}><span>{Number(date.slice(-2))}</span>{items.length > 0 && <i aria-hidden="true" />}</button> : <span key={`blank-${index}`} />;
-      })}</div><p><i /> 圆点代表当天有活动</p>{day && <button type="button" className="activity-reset" onClick={() => setDay("")}>查看全部日期</button>}
+      })}</div><p><i /> 圆点代表当天有活动</p>{day && <button type="button" className="activity-reset" onClick={() => setDay("")}>查看全部活动</button>}
       {dated.length > 0 && <label className="activity-jump">跳到活动月份<select value={month} onChange={event => { setMonth(event.target.value); setDay(""); }}><option value={month}>{month}</option>{[...new Set(dated.map(film => film.date!.slice(0, 7)))].filter(value => value !== month).map(value => <option key={value}>{value}</option>)}</select></label>}
     </aside>
-    <div className="activity-timeline"><header><span>SCREENING DIARY</span><h2>{day || "活动时间线"}</h2></header>{!visible.length && <p className="activity-empty">{dated.length ? "这一天暂无活动。" : "活动日期补充后，将在这里留下记录。"}</p>}
-      {visible.map(film => <article className="activity-timeline-item" key={film.slug}><time dateTime={film.date}>{film.date}</time><div className="activity-timeline-card"><a className="activity-timeline-cover" href={eventHref(film.slug)}><img src={presentations[film.slug]?.poster || film.poster} alt={film.posterAlt} loading="lazy" style={{ objectPosition: `${presentations[film.slug]?.posterX ?? 50}% ${presentations[film.slug]?.posterY ?? 50}%` }} /></a><div><small>ISSUE {film.issue}</small><h3><a href={eventHref(film.slug)}>{film.zhTitle}</a></h3>{film.location && <p>{film.location}</p>}{film.summary && <p>{film.summary}</p>}<nav aria-label={`${film.zhTitle}活动资料`}><a href={eventHref(film.slug, "articles")}>文章</a><a href={eventHref(film.slug, "photos")}>映后图片</a><a href={eventHref(film.slug, "merch")}>物料图片</a></nav></div></div></article>)}
+    <div className="activity-timeline"><header><span>SCREENING DIARY</span><h2>{day || "往期活动"}<small className="activity-list-count">{visible.length} 场</small></h2></header>{!visible.length && <p className="activity-empty">{day ? "这一天暂无活动。" : "活动公开后，将显示在这里。"}</p>}
+      {visible.map(film => <article className="activity-timeline-item" key={film.slug}>{film.date ? <time dateTime={film.date}>{film.date}</time> : <p className="activity-date-pending">日期待补充</p>}<div className="activity-timeline-card"><a className="activity-timeline-cover" href={eventHref(film.slug)} aria-label={`${film.issue} 期 ${film.zhTitle} ${film.title}`}><img src={presentations[film.slug]?.poster || film.poster} alt={film.posterAlt} loading="lazy" style={{ objectPosition: `${presentations[film.slug]?.posterX ?? 50}% ${presentations[film.slug]?.posterY ?? 50}%` }} /></a><div><small>ISSUE {film.issue}</small><h3><a href={eventHref(film.slug)}>{film.zhTitle}</a></h3>{film.location && <p>{film.location}</p>}{film.summary && <p>{film.summary}</p>}<nav aria-label={`${film.zhTitle}活动资料`}><a href={eventHref(film.slug, "articles")}>文章</a><a href={eventHref(film.slug, "photos")}>映后图片</a><a href={eventHref(film.slug, "merch")}>物料图片</a></nav></div></div></article>)}
     </div>
   </section>;
 }

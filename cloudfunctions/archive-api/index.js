@@ -6,6 +6,7 @@ const JSZip = require("jszip");
 const { sanitizeArticle } = require("./article-html");
 const { imageKeys, presentationService } = require("./presentation");
 const { eventsService } = require("./events");
+const { homeSettingsService } = require("./home-settings");
 const { importWechat, importWechatContent } = require("./wechat");
 const { convertDraft } = require("./wechat-draft");
 const { photoSubmissionsService } = require("./photo-submissions");
@@ -13,6 +14,7 @@ const { photoSubmissionsService } = require("./photo-submissions");
 const cloud = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
 const db = cloud.database();
 const events = eventsService(db);
+const homeSettings = homeSettingsService(db, getTemporaryUrls);
 const presentation = presentationService(db, getTemporaryUrls, events.exists);
 const photoSubmissions = photoSubmissionsService(db, cloud, events, getTemporaryUrls);
 
@@ -411,6 +413,12 @@ async function editorContent(event) {
 }
 
 exports.main = async (event = {}) => {
+  if (!event.httpMethod && ["home-get", "home-save"].includes(event.action)) {
+    try {
+      const uid = requireAdmin();
+      return { ok: true, settings: event.action === "home-save" ? await homeSettings.save(event.settings, uid) : await homeSettings.get() };
+    } catch (error) { return { ok: false, message: error.message || "首页保存失败" }; }
+  }
   if (!event.httpMethod && event.action === "convert-wechat") {
     try {
       const uid = requireAdmin();
@@ -496,6 +504,10 @@ exports.main = async (event = {}) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers, body: "" };
 
   const action = String(event.queryStringParameters?.action || "");
+  if (action === "home" && event.httpMethod === "GET") {
+    try { return json(200, headers, { settings: await homeSettings.get() }); }
+    catch { return json(500, headers, { message: "首页图片暂时无法加载" }); }
+  }
   if (["submit-photo", "photo-upload-start", "photo-upload-part", "photo-upload-finish"].includes(action) && event.httpMethod === "POST") {
     if (!allowedOrigins.has(requestOrigin(event))) return json(403, headers, { message: "请在活动网站提交照片" });
     try {

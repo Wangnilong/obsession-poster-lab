@@ -75,13 +75,16 @@ test("server-renders the Kill Bill artefact generators", async () => {
   assert.doesNotMatch(source, /downloadCanvas\(licenseBackRef\.current/);
 });
 
-test("server-renders a poster-only screening archive index", async () => {
+test("server-renders an archive with calendar first and all events in a vertical list", async () => {
   const response = await render("/archive");
   assert.equal(response.status, 200);
 
   const html = await response.text();
   assert.match(html, /SCREENING ARCHIVE/);
-  assert.match(html, /archive-poster-grid/);
+  assert.doesNotMatch(html, /archive-poster-grid/);
+  assert.match(html, /activity-calendar/);
+  assert.match(html, /activity-timeline-item/);
+  assert.ok(html.indexOf("activity-calendar") < html.indexOf("activity-timeline-item"));
   assert.match(html, /aria-label="01 期 迷恋 OBSESSION"/);
   assert.match(html, /aria-label="02 期 杀死比尔 KILL BILL"/);
   assert.match(html, /\/archive\/obsession\//);
