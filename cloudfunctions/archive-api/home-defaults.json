@@ -1,0 +1,12 @@
+[
+  {"key":"logo","label":"网站标志（页首、页尾）","title":"宇宙放映","copy":"","image":"/cosmos42/logo.png"},
+  {"key":"current","label":"首页顶部电影海报","title":"Kill Bill","copy":"把名字写进暗杀名单，或者制作一张属于自己的 Killer License。","image":"/kill-bill/death-list-still.jpg"},
+  {"key":"hero","label":"首页介绍主图","title":"把值得的电影\n带到愿意相遇的人面前","copy":"我们做的，不是把人带进影院就结束，而是让一次共同观看有来路、有现场，也有余韵。","image":"/cosmos42/barbie-opening.jpg"},
+  {"key":"programme-pop","label":"方向一","title":"流行文化共创","copy":"从《芭比》派对到哈利·波特系列观影礼，让熟悉的电影成为共同节日。","image":"/cosmos42/barbie-wall.jpg"},
+  {"key":"programme-art","label":"方向二","title":"经典与艺术实验","copy":"默片现场配乐、女性影像、身体性展映和短片巡游，让放映形式本身成为创作。","image":"/cosmos42/train.jpg"},
+  {"key":"programme-real","label":"方向三","title":"现实议题与本地故事","copy":"社工实践、女性叙事、独立纪录片与深圳题材，让电影和真实生活重新接通。","image":"/cosmos42/broad-daylight.jpg"},
+  {"key":"case-live","label":"案例一主图","title":"《神女》× 默片即兴配乐","copy":"把百年前的影像带回影院，邀请音乐家以结构化即兴进行现场配乐；银幕、演奏者与观众共同组成一次不可复制的三角对话。","image":"/cosmos42/goddess-live.jpg"},
+  {"key":"case-poster","label":"案例二海报","title":"《白日之下》× 社工实践映后","copy":"电影揭示弱势群体处境，映后邀请一线社工从实践角度继续讨论；活动结余用于支持相关社工与公益工作。","image":"/cosmos42/broad-daylight.jpg"},
+  {"key":"case-person","label":"案例二现场图","title":"《白日之下》映后社工实践分享","copy":"","image":"/cosmos42/social-work.jpg"},
+  {"key":"case-notes","label":"案例二物料图","title":"《白日之下》映后记录物料","copy":"","image":"/cosmos42/broad-daylight-notes.jpg"}
+]

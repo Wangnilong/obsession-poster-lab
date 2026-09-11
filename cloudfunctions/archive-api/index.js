@@ -1,0 +1,534 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+
+const crypto = require("node:crypto");
+const cloudbase = require("@cloudbase/node-sdk");
+const JSZip = require("jszip");
+const { sanitizeArticle } = require("./article-html");
+const { imageKeys, presentationService } = require("./presentation");
+const { eventsService } = require("./events");
+const { homeSettingsService } = require("./home-settings");
+const { importWechat, importWechatContent } = require("./wechat");
+const { convertDraft } = require("./wechat-draft");
+const { photoSubmissionsService } = require("./photo-submissions");
+
+const cloud = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
+const db = cloud.database();
+const events = eventsService(db);
+const homeSettings = homeSettingsService(db, getTemporaryUrls);
+const presentation = presentationService(db, getTemporaryUrls, events.exists);
+const photoSubmissions = photoSubmissionsService(db, cloud, events, getTemporaryUrls);
+
+const allowedOrigins = new Set([
+  "https://cosmosfilm42.cn",
+  "https://www.cosmosfilm42.cn",
+  "https://cosmosfilm42.spiffy-moose-2906.chatgpt.site",
+  "https://cosmosfilm42-admin-d8c82218a2fad-1325477277.tcloudbaseapp.com",
+]);
+const allowedFilms = new Set(["obsession", "kill-bill"]);
+const allowedSections = new Set(["articles", "photos", "tools", "merch"]);
+const allowedCardTypes = new Set(["death-list", "killer-license"]);
+const adminUserIds = new Set([
+  "2084617266415722497",
+  "2084617281419927554",
+  "2084617296435154946",
+  "2084617312926359553",
+]);
+
+function requestOrigin(event) {
+  return event.headers?.origin || event.headers?.Origin || "";
+}
+
+function responseHeaders(event) {
+  const origin = requestOrigin(event);
+  return {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": allowedOrigins.has(origin) ? origin : "https://cosmosfilm42.cn",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Cache-Control": "no-store",
+    Vary: "Origin",
+  };
+}
+
+function json(statusCode, headers, body) {
+  return { statusCode, headers, body: JSON.stringify(body) };
+}
+
+function parseBody(event) {
+  if (event.body && typeof event.body === "object") return event.body;
+  const rawBody = event.isBase64Encoded
+    ? Buffer.from(String(event.body || ""), "base64").toString("utf8")
+    : String(event.body || "");
+  return rawBody ? JSON.parse(rawBody) : {};
+}
+
+function cleanText(value, maxLength) {
+  return String(value || "").replace(/[<>\u0000-\u001f]/g, "").trim().slice(0, maxLength);
+}
+
+async function getTemporaryUrls(fileIDs) {
+  const temporaryUrls = new Map();
+  if (!fileIDs.length) return temporaryUrls;
+  for (let start = 0; start < fileIDs.length; start += 50) {
+    const urlResult = await cloud.getTempFileURL({ fileList: fileIDs.slice(start, start + 50) });
+    for (const file of urlResult.fileList || []) {
+      if (file.fileID && file.tempFileURL) temporaryUrls.set(file.fileID, file.tempFileURL);
+    }
+  }
+  return temporaryUrls;
+}
+
+async function listAllCardRecords(cardType) {
+  const records = [];
+  const pageSize = 100;
+  let offset = 0;
+  while (true) {
+    const result = await db.collection("card_creations")
+      .where({ film: "kill-bill" })
+      .orderBy("createdAt", "desc")
+      .skip(offset)
+      .limit(pageSize)
+      .get();
+    const page = result.data || [];
+    records.push(...page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+  }
+  return records.filter((record) => (
+    record.source !== "bootstrap"
+    && allowedCardTypes.has(record.cardType)
+    && (!cardType || record.cardType === cardType)
+  ));
+}
+
+async function listCards(headers) {
+  try {
+    const query = db.collection("card_creations").where({
+      film: "kill-bill",
+      visibility: "public",
+      status: "published",
+    });
+    const result = await query.orderBy("createdAt", "desc").limit(48).get();
+    const records = (result.data || []).filter((record) => record.cardType === "killer-license");
+    const temporaryUrls = await getTemporaryUrls([...new Set(records.map((record) => record.fileID).filter(Boolean))]);
+    return json(200, headers, {
+      total: records.length,
+      cards: records.map((record) => ({
+        id: record._id,
+        cardType: record.cardType,
+        displayName: record.displayName,
+        image: temporaryUrls.get(record.fileID),
+        createdAt: record.createdAt,
+      })).filter((record) => record.image),
+    });
+  } catch (error) {
+    console.error("card list failed", error);
+    return json(200, headers, { total: 0, cards: [] });
+  }
+}
+
+function requireAdmin() {
+  const userInfo = cloud.auth().getUserInfo();
+  const uid = cleanText(userInfo?.uid, 64);
+  if (!adminUserIds.has(uid)) throw new Error("只有管理员可以查看和管理用户作品");
+  return uid;
+}
+
+async function listAdminCards() {
+  requireAdmin();
+  const records = await listAllCardRecords();
+  const temporaryUrls = await getTemporaryUrls([...new Set(records.map((record) => record.fileID).filter(Boolean))]);
+  return {
+    ok: true,
+    cards: records.map((record) => ({
+      id: record._id,
+      cardType: record.cardType,
+      displayName: record.displayName,
+      image: temporaryUrls.get(record.fileID) || "",
+      createdAt: record.createdAt,
+      status: record.status === "hidden" ? "hidden" : "published",
+      visibility: record.cardType === "death-list" ? "private" : (record.visibility === "public" ? "public" : "private"),
+    })),
+  };
+}
+
+async function setCardStatus(event) {
+  requireAdmin();
+  const id = cleanText(event.id, 128);
+  const status = cleanText(event.status, 16);
+  if (!id || !["published", "hidden"].includes(status)) throw new Error("作品状态参数不正确");
+  const result = await db.collection("card_creations").doc(id).get();
+  const record = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!record || !allowedCardTypes.has(record.cardType) || record.visibility !== "public") {
+    throw new Error("只有公开作品可以调整作品墙状态");
+  }
+  await db.collection("card_creations").doc(id).update({ status });
+  return { ok: true };
+}
+
+async function deleteCard(event) {
+  requireAdmin();
+  const id = cleanText(event.id, 128);
+  if (!id) throw new Error("没有找到要删除的作品");
+  const result = await db.collection("card_creations").doc(id).get();
+  const record = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!record || !allowedCardTypes.has(record.cardType)) throw new Error("作品不存在或已被删除");
+  await db.collection("card_creations").doc(id).remove();
+  if (record.fileID) {
+    try {
+      await cloud.deleteFile({ fileList: [record.fileID] });
+    } catch (error) {
+      console.warn("deleted card image cleanup failed", error);
+    }
+  }
+  return { ok: true };
+}
+
+function safeArchiveName(value, fallback) {
+  const cleaned = cleanText(value, 32).replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, "-");
+  return cleaned || fallback;
+}
+
+async function exportCardImages(event) {
+  requireAdmin();
+  const requestedCardType = cleanText(event.cardType, 32);
+  const cardType = requestedCardType || "killer-license";
+  if (!allowedCardTypes.has(cardType)) throw new Error("下载类型无效，请重新选择");
+  const records = await listAllCardRecords(cardType);
+  if (!records.length) throw new Error(cardType === "death-list" ? "现在还没有暗杀名单" : "现在还没有身份小卡");
+
+  const zip = new JSZip();
+  for (let start = 0; start < records.length; start += 10) {
+    const batch = records.slice(start, start + 10);
+    const downloaded = await Promise.all(batch.map(async (record) => {
+      if (!record.fileID) return null;
+      const file = await cloud.downloadFile({ fileID: record.fileID });
+      return { record, fileContent: file.fileContent };
+    }));
+    for (let index = 0; index < downloaded.length; index += 1) {
+      const item = downloaded[index];
+      if (!item?.fileContent) continue;
+      const absoluteIndex = start + index + 1;
+      const date = new Date(item.record.createdAt || Date.now()).toISOString().slice(0, 10);
+      const name = safeArchiveName(item.record.displayName, "anonymous");
+      zip.file(`${String(absoluteIndex).padStart(4, "0")}-${date}-${name}.jpg`, item.fileContent);
+    }
+  }
+
+  const exportLabel = cardType === "death-list" ? "death-lists" : "killer-licenses";
+  const filename = `cosmosfilm-${exportLabel}-${new Date().toISOString().slice(0, 10)}.zip`;
+  const fileContent = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  const cloudPath = `admin-exports/kill-bill/${Date.now()}-${crypto.randomUUID()}.zip`;
+  const upload = await cloud.uploadFile({ cloudPath, fileContent });
+  const temporaryUrls = await getTemporaryUrls([upload.fileID]);
+  const downloadUrl = temporaryUrls.get(upload.fileID);
+  if (!downloadUrl) throw new Error("下载包链接生成失败，请重试");
+  return { ok: true, downloadUrl, filename, count: records.length };
+}
+
+async function createCard(event, headers) {
+  const origin = requestOrigin(event);
+  if (!allowedOrigins.has(origin)) return json(403, headers, { message: "当前网站来源不能提交作品" });
+
+  let payload;
+  try {
+    payload = parseBody(event);
+  } catch {
+    return json(400, headers, { message: "提交内容无法读取" });
+  }
+
+  const requestedCardType = cleanText(payload.cardType || payload.type, 32);
+  const cardType = !requestedCardType || ["id-card", "killer-card", "license"].includes(requestedCardType)
+    ? "killer-license"
+    : requestedCardType;
+  const displayName = cleanText(payload.displayName || payload.name, 32);
+  const requestedVisibility = cleanText(payload.visibility, 16);
+  const visibility = ["public", "private"].includes(requestedVisibility)
+    ? requestedVisibility
+    : (payload.consentToPublish === true ? "public" : "private");
+  const clientCreationId = cleanText(payload.clientCreationId, 64) || `legacy-${crypto.randomUUID()}`;
+  if (!allowedCardTypes.has(cardType)) {
+    console.warn("card submission rejected: unsupported type", { requestedCardType, origin });
+    return json(400, headers, { message: "网页版本较旧，请刷新后再保存一次" });
+  }
+  if (!displayName) {
+    console.warn("card submission rejected: empty display name", { cardType, origin });
+    return json(400, headers, { message: "请先填写卡面姓名" });
+  }
+  if (payload.consentToStore === false) {
+    return json(400, headers, { message: "保存作品前需要确认留档说明" });
+  }
+  if (cardType === "death-list" && visibility !== "private") {
+    return json(400, headers, { message: "暗杀名单只允许后台留档，不会公开展示" });
+  }
+  if (visibility === "public" && payload.consentToPublish !== true) {
+    return json(400, headers, { message: "公开展示前需要确认授权" });
+  }
+
+  const imageMatch = String(payload.imageData || "").match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+  if (!imageMatch) return json(400, headers, { message: "作品图片格式不支持" });
+  const fileContent = Buffer.from(imageMatch[2], "base64");
+  if (!fileContent.length || fileContent.length > 64 * 1024) {
+    return json(413, headers, { message: "作品图片过大，请重新生成后再试" });
+  }
+
+  const extension = imageMatch[1] === "jpeg" ? "jpg" : imageMatch[1];
+  const now = Date.now();
+  const cloudPath = `community/kill-bill/${new Date(now).toISOString().slice(0, 10)}/${now}-${crypto.randomUUID()}.${extension}`;
+
+  try {
+    const upload = await cloud.uploadFile({ cloudPath, fileContent });
+    const fileID = upload.fileID;
+    const existingResult = await db.collection("card_creations")
+      .where({ film: "kill-bill", clientCreationId })
+      .limit(1)
+      .get();
+    const existing = (existingResult.data || [])[0];
+    let id;
+    if (existing) {
+      const nextVisibility = existing.visibility === "public" || visibility === "public" ? "public" : "private";
+      const nextStatus = nextVisibility === "public"
+        ? (existing.visibility === "public" && existing.status === "hidden" ? "hidden" : "published")
+        : "hidden";
+      await db.collection("card_creations").doc(existing._id).update({
+        displayName,
+        fileID,
+        visibility: nextVisibility,
+        status: nextStatus,
+        updatedAt: now,
+      });
+      id = existing._id;
+      if (existing.fileID && existing.fileID !== fileID) {
+        try {
+          await cloud.deleteFile({ fileList: [existing.fileID] });
+        } catch (error) {
+          console.warn("old card image cleanup failed", error);
+        }
+      }
+    } else {
+      const created = await db.collection("card_creations").add({
+        film: "kill-bill",
+        issue: "02",
+        cardType,
+        displayName,
+        fileID,
+        visibility,
+        status: visibility === "public" ? "published" : "hidden",
+        createdAt: now,
+        updatedAt: now,
+        clientCreationId,
+        source: "kill-bill-generator",
+      });
+      id = created.id || created._id;
+    }
+    const temporaryUrls = await getTemporaryUrls([fileID]);
+    return json(existing ? 200 : 201, headers, { id, image: temporaryUrls.get(fileID), visibility });
+  } catch (error) {
+    console.error("card creation failed", error);
+    return json(500, headers, { message: "作品暂时保存失败，请稍后再试" });
+  }
+}
+
+async function listArchive(event, headers) {
+  const film = String(event.queryStringParameters?.film || "");
+  const section = String(event.queryStringParameters?.section || "");
+  if (!await events.exists(film, !event.adminPreview) || !allowedSections.has(section)) {
+    return json(400, headers, { entries: [] });
+  }
+
+  try {
+    const records = [];
+    for (let offset = 0; ; offset += 100) {
+      const result = await db.collection("archive_content").where({ film, section, status: "published" }).orderBy("createdAt", "desc").skip(offset).limit(100).get();
+      records.push(...(result.data || []));
+      if ((result.data || []).length < 100) break;
+    }
+    const fileIDs = [...new Set(records.flatMap((record) => [record.fileID, ...(record.layout || []).map((block) => block.fileID), ...Array.from(String(record.articleHtml || "").matchAll(/data-file-id="([^"]+)"/g), match => match[1])]).filter(Boolean))];
+    const temporaryUrls = await getTemporaryUrls(fileIDs);
+
+    return json(200, headers, {
+      presentation: await presentation.get(film),
+      entries: records.map((record) => ({
+        id: record._id,
+        imageKey: `${record._id}:cover`,
+        title: record.title,
+        articleHtml: record.articleHtml ? sanitizeArticle(record.articleHtml, temporaryUrls) : undefined,
+        meta: record.meta,
+        copy: record.copy,
+        href: record.href,
+        action: record.action,
+        image: record.fileID ? temporaryUrls.get(record.fileID) : undefined,
+        imageAlt: record.imageAlt,
+        layout: (record.layout || []).map((block, index) => block.type === "image"
+          ? { ...block, imageKey: imageKeys(record)[index], image: block.fileID ? temporaryUrls.get(block.fileID) : undefined, fileID: undefined }
+          : block),
+      })),
+    });
+  } catch (error) {
+    console.error("archive list failed", error);
+    return json(500, headers, { entries: [] });
+  }
+}
+
+async function editorContent(event) {
+  const uid = cleanText(cloud.auth().getUserInfo()?.uid, 64);
+  const isAdmin = adminUserIds.has(uid);
+  const photoUploader = uid === "2084617329225424898";
+  if (!isAdmin && !photoUploader) throw new Error("请先登录内容后台");
+  if (!isAdmin && (event.action === "editor-hide" || (event.action === "editor-list" ? event.section !== "photos" : event.record?.section !== "photos" || event.record?._id))) throw new Error("此账号只允许查看和上传映后图片");
+  if (event.action === "editor-list") {
+    if (!await events.exists(event.film) || !allowedSections.has(event.section)) throw new Error("场次或分类不正确");
+    const offset = Math.max(0, Number(event.offset) || 0);
+    const result = await db.collection("archive_content").where({ film: event.film, section: event.section, ...(!isAdmin ? { status: "published" } : {}) }).orderBy("createdAt", "desc").skip(offset).limit(100).get();
+    return { ok: true, records: result.data || [] };
+  }
+  if (event.action === "editor-hide") {
+    const id = cleanText(event.id, 128);
+    if (!id) throw new Error("内容不存在");
+    await db.collection("archive_content").doc(id).update({ status: "hidden", updatedAt: Date.now(), updatedBy: uid });
+    return { ok: true };
+  }
+  const input = event.record || {};
+  if (!isAdmin && (input.status !== "published" || !String(input.fileID || "").startsWith("cloud://") || input.articleHtml || input.pendingHtml || input.layout?.length)) throw new Error("此账号只能上传照片");
+  if (!await events.exists(input.film) || !allowedSections.has(input.section) || !["published", "draft", "hidden"].includes(input.status)) throw new Error("场次、分类或发布状态不正确");
+  if (!String(input.title || "").trim()) throw new Error("请填写标题");
+  if (String(input.articleHtml || "").length + String(input.pendingHtml || "").length > 500000) throw new Error("文章过长，请拆分为多篇");
+  const record = {
+    film: input.film, section: input.section, title: cleanText(input.title, 200), copy: String(input.copy || "").slice(0, 2000),
+    meta: cleanText(input.meta, 100), status: input.status, createdAt: Number(input.createdAt) || Date.now(), createdBy: cleanText(input.createdBy, 64),
+    articleHtml: sanitizeArticle(input.articleHtml), pendingHtml: sanitizeArticle(input.pendingHtml), pendingTitle: cleanText(input.pendingTitle, 200), pendingCopy: String(input.pendingCopy || "").slice(0, 2000),
+    fileID: cleanText(input.fileID, 1024), imageAlt: cleanText(input.imageAlt, 300), layout: Array.isArray(input.layout) ? input.layout : [], updatedAt: Date.now(), updatedBy: uid,
+  };
+  let id = cleanText(input._id, 128);
+  if (id) {
+    const existing = await db.collection("archive_content").doc(id).get();
+    const previous = Array.isArray(existing.data) ? existing.data[0] : existing.data;
+    if (!previous || previous.film !== input.film || previous.section !== input.section) throw new Error("原内容不存在，请重新打开");
+    record.createdAt = previous.createdAt; record.createdBy = previous.createdBy;
+    await db.collection("archive_content").doc(id).update(record);
+  } else {
+    const result = await db.collection("archive_content").add(record); id = result.id || result._id;
+  }
+  return { ok: true, id };
+}
+
+exports.main = async (event = {}) => {
+  if (!event.httpMethod && ["home-get", "home-save"].includes(event.action)) {
+    try {
+      const uid = requireAdmin();
+      return { ok: true, settings: event.action === "home-save" ? await homeSettings.save(event.settings, uid) : await homeSettings.get() };
+    } catch (error) { return { ok: false, message: error.message || "首页保存失败" }; }
+  }
+  if (!event.httpMethod && event.action === "convert-wechat") {
+    try {
+      const uid = requireAdmin();
+      if (!await events.exists(event.film)) throw new Error("请先保存活动");
+      const convert = () => event.mode === "content"
+        ? importWechatContent(cloud, event, event.film)
+        : importWechat(cloud, event.url, event.film);
+      const result = event.saveDraft ? await convertDraft(db, cloud, uid, event, convert) : await convert();
+      return { ok: true, ...result };
+    } catch (error) { return { ok: false, code: error.code, message: error.message || "转换失败，原内容仍保留，可重试" }; }
+  }
+  if (!event.httpMethod && ["photo-submissions-list", "photo-submissions-review"].includes(event.action)) {
+    try {
+      const uid = requireAdmin();
+      return event.action === "photo-submissions-review" ? await photoSubmissions.review(event, uid) : { ok: true, ...await photoSubmissions.list(event) };
+    } catch (error) { return { ok: false, message: error.message || "审核操作失败" }; }
+  }
+  if (!event.httpMethod && event.action === "import-wechat") {
+    try {
+      const uid = requireAdmin();
+      if (!await events.exists(event.film)) throw new Error("请先保存活动");
+      const imported = await importWechat(cloud, event.url, event.film);
+      const saved = await editorContent({ action: "editor-save", record: { film: event.film, section: "articles", title: imported.title, articleHtml: imported.articleHtml, status: "draft", createdBy: uid } });
+      return { ok: true, id: saved.id, title: imported.title, images: imported.images };
+    } catch (error) { return { ok: false, message: error.message || "公众号转换失败，请稍后重试" }; }
+  }
+  if (!event.httpMethod && ["events-get", "events-save", "event-preview"].includes(event.action)) {
+    try {
+      const uid = requireAdmin();
+      if (event.action === "event-preview") {
+        const response = await listArchive({ queryStringParameters: event, adminPreview: true }, {});
+        if (response.statusCode !== 200) throw new Error("活动内容加载失败");
+        return { ok: true, document: JSON.parse(response.body) };
+      }
+      return { ok: true, catalog: event.action === "events-save" ? await events.save(event.catalog, uid) : await events.get() };
+    } catch (error) { return { ok: false, message: error.message || "活动保存失败" }; }
+  }
+  if (!event.httpMethod && ["presentation-get", "presentation-save"].includes(event.action)) {
+    try {
+      const uid = requireAdmin();
+      const settings = event.action === "presentation-save" ? await presentation.save(event.film, event.presentation, uid) : await presentation.get(event.film);
+      return { ok: true, presentation: settings };
+    } catch (error) { return { ok: false, message: error.message || "页面布局保存失败" }; }
+  }
+  if (!event.httpMethod && ["editor-list", "editor-save", "editor-hide"].includes(event.action)) {
+    try { return await editorContent(event); }
+    catch (error) { console.error("content editor failed", error); return { ok: false, message: error instanceof Error ? error.message : "内容保存失败" }; }
+  }
+  if (!event.httpMethod && event.action === "admin-cards") {
+    try {
+      return await listAdminCards();
+    } catch (error) {
+      console.error("admin card list failed", error);
+      return { ok: false, message: error instanceof Error ? error.message : "用户作品加载失败" };
+    }
+  }
+  if (!event.httpMethod && event.action === "set-card-status") {
+    try {
+      return await setCardStatus(event);
+    } catch (error) {
+      console.error("card status update failed", error);
+      return { ok: false, message: error instanceof Error ? error.message : "作品状态更新失败" };
+    }
+  }
+  if (!event.httpMethod && event.action === "delete-card") {
+    try {
+      return await deleteCard(event);
+    } catch (error) {
+      console.error("card deletion failed", error);
+      return { ok: false, message: error instanceof Error ? error.message : "作品删除失败" };
+    }
+  }
+  if (!event.httpMethod && event.action === "export-card-images") {
+    try {
+      return await exportCardImages(event);
+    } catch (error) {
+      console.error("card image export failed", error);
+      return { ok: false, message: error instanceof Error ? error.message : "图片打包失败" };
+    }
+  }
+
+  const headers = responseHeaders(event);
+  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers, body: "" };
+
+  const action = String(event.queryStringParameters?.action || "");
+  if (action === "home" && event.httpMethod === "GET") {
+    try { return json(200, headers, { settings: await homeSettings.get() }); }
+    catch { return json(500, headers, { message: "首页图片暂时无法加载" }); }
+  }
+  if (["submit-photo", "photo-upload-start", "photo-upload-part", "photo-upload-finish"].includes(action) && event.httpMethod === "POST") {
+    if (!allowedOrigins.has(requestOrigin(event))) return json(403, headers, { message: "请在活动网站提交照片" });
+    try {
+      const sourceIp = event.requestContext?.sourceIp || event.requestContext?.identity?.sourceIp || "";
+      const handler = action === "photo-upload-start" ? "start" : action === "photo-upload-part" ? "part" : action === "photo-upload-finish" ? "finish" : "submit";
+      return json(201, headers, await photoSubmissions[handler](parseBody(event), sourceIp));
+    } catch (error) { return json(400, headers, { message: error.message || "照片提交失败，请稍后重试" }); }
+  }
+  if (action === "events" && event.httpMethod === "GET") {
+    try { const catalog = await events.get(); return json(200, headers, { events: catalog.events.filter(item => item.status === "published") }); }
+    catch { return json(500, headers, { message: "活动加载失败" }); }
+  }
+  if (action === "presentations" && event.httpMethod === "GET") {
+    try {
+      const catalog = await events.get();
+      const values = await Promise.all(catalog.events.filter(item => item.status === "published").map(async item => [item.slug, await presentation.get(item.slug)]));
+      return json(200, headers, { presentations: Object.fromEntries(values) });
+    } catch { return json(500, headers, { message: "页面布局加载失败" }); }
+  }
+  if (action === "cards" && event.httpMethod === "GET") return listCards(headers);
+  if (action === "create-card" && event.httpMethod === "POST") return createCard(event, headers);
+  if (event.httpMethod && event.httpMethod !== "GET") return json(405, headers, { message: "请求方式不支持" });
+  return listArchive(event, headers);
+};

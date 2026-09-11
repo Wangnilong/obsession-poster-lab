@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+**/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -38,6 +39,10 @@ yarn-error.log*
 next-env.d.ts
 /dist/
 /github-dist/
+/edgeone-dist/
+/.edgeone/
+/tmp/
+/release/
 /.wrangler/
 /outputs/
 /work/

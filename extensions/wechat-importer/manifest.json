@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "宇宙放映 · 公众号导入",
+  "version": "1.0.1",
+  "description": "将当前打开的公众号文章带入宇宙放映后台，核对后保存为活动草稿。",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://cosmosfilm42-admin-d8c82218a2fad-1325477277.tcloudbaseapp.com/*"],
+  "action": { "default_popup": "popup.html", "default_title": "导入到宇宙放映" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [{
+    "matches": ["https://cosmosfilm42-admin-d8c82218a2fad-1325477277.tcloudbaseapp.com/archive/admin/*"],
+    "js": ["bridge.js"],
+    "run_at": "document_idle"
+  }]
+}
