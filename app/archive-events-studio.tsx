@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { eventFilm, type EventCatalog, type EventRecord } from "./archive-events";
+import { eventFilm, eventHref, type EventCatalog, type EventRecord } from "./archive-events";
 import { getEditorEvents, saveEditorEvents, loadArchivePresentations, importWechatArticle } from "./cloudbase-archive";
 import { moveKey, type ArchivePresentation } from "./archive-presentation";
 import { ActivityTimeline } from "./archive-timeline";
@@ -39,10 +39,16 @@ export default function ArchiveEventsStudio({ onSaved, onOpen }: { onSaved: (fil
   }, [dirty, busy]);
   const change = (patch: Partial<EventRecord>) => setCatalog(value => value && { ...value, events: value.events.map(event => event.slug === selected ? { ...event, ...patch } : event) });
   const move = (from: string, to: string) => setCatalog(value => value && { ...value, events: moveKey(value.events.map(event => event.slug), from, to).map(slug => value.events.find(event => event.slug === slug)!) });
-  const save = async () => {
+  const save = async (publishCurrent = false) => {
     if (!catalog || busy) return;
     setBusy(true); setError(""); setMessage("");
-    try { const data = await saveEditorEvents(catalog); setCatalog(data); setBaseline(JSON.stringify(data)); onSaved(data.events.map(eventFilm)); setMessage("活动已保存，日历、时间线与展示顺序已同步。"); }
+    try {
+      const submitted = publishCurrent ? { ...catalog, events: catalog.events.map(event => event.slug === selected ? { ...event, status: "published" as const } : event) } : catalog;
+      const data = await saveEditorEvents(submitted);
+      setCatalog(data); setBaseline(JSON.stringify(data)); onSaved(data.events.map(eventFilm));
+      const saved = data.events.find(event => event.slug === selected);
+      setMessage(saved?.status === "published" ? `《${saved.zhTitle}》已公开，网站活动列表与日历已同步。活动内的文章仍需各自发布后才会展示。` : `《${saved?.zhTitle || "活动"}》已保存为草稿，仅后台可见。点击“保存并公开活动”后，网站才会展示。`);
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "保存失败"); }
     finally { setBusy(false); }
   };
@@ -67,6 +73,7 @@ export default function ArchiveEventsStudio({ onSaved, onOpen }: { onSaved: (fil
         <button type="button" className="cms-event-select" disabled={busy} onClick={() => { setSelected(event.slug); setUrl(""); }}><img src={presentations[event.slug]?.poster || film.poster} alt="" /><span><strong>{event.zhTitle}</strong><small>{event.date || "日期待补充"} · {event.status === "draft" ? "草稿" : "公开"}</small></span></button><div><button type="button" disabled={busy || index === 0} aria-label={`${event.zhTitle}上移`} onClick={() => move(event.slug, catalog.events[index - 1].slug)}>↑</button><button type="button" disabled={busy || index === catalog.events.length - 1} aria-label={`${event.zhTitle}下移`} onClick={() => move(event.slug, catalog.events[index + 1].slug)}>↓</button></div>
       </article>;
     })}</div>{current && <div className="cms-event-detail"><fieldset disabled={busy}><legend>活动信息</legend><label>活动名称<input value={current.zhTitle} maxLength={100} onChange={e => change({ zhTitle: e.target.value })} /></label><label>海报大标题 / 英文名<input value={current.title} maxLength={100} onChange={e => change({ title: e.target.value })} /></label><div className="cms-event-pair"><label>期号<input value={current.issue} maxLength={20} onChange={e => change({ issue: e.target.value })} /></label><label>活动日期<input type="date" value={current.date} onChange={e => change({ date: e.target.value })} /></label></div><label>地点<input value={current.location} maxLength={200} onChange={e => change({ location: e.target.value })} /></label><label>购票跳转链接<input type="url" value={current.ticketUrl || ""} maxLength={2000} placeholder="粘贴微信小程序的购票跳转链接" onChange={e => change({ ticketUrl: e.target.value })} /></label><p>公开活动填写链接后，首页“买票”会直接跳转；多个购票活动会显示选择列表。</p><label>活动简介<textarea rows={3} maxLength={1000} value={current.summary} onChange={e => change({ summary: e.target.value })} /></label><label>可见范围<select value={current.status} onChange={e => change({ status: e.target.value as EventRecord["status"] })}><option value="draft">草稿（仅后台可见）</option><option value="published">公开</option></select></label></fieldset>
+      <div className="cms-notice"><strong>{current.status === "draft" ? "草稿活动：网站上还看不到" : dirty ? "公开设置尚有未保存的调整" : "活动已公开"}</strong><p>保存活动草稿只会保留在后台。公开活动后才会出现在网站；文章草稿需要在“图文内容”里另外发布。</p><div className="cms-actions"><button type="button" className="cms-primary" disabled={busy || (current.status === "published" && !dirty)} onClick={() => void save(true)}>{current.status === "published" && !dirty ? "已公开到网站" : "保存并公开活动"}</button>{current.status === "published" && !dirty && <a className="cms-source-link" href={eventHref(current.slug)} target="_blank" rel="noopener noreferrer">查看网站活动 ↗</a>}</div></div>
       <div className="cms-actions"><button disabled={busy || dirty} type="button" onClick={() => onOpen(current.slug)}>调整海报与页面布局</button><button disabled={busy || dirty} type="button" onClick={() => onOpen(current.slug, "photos")}>添加映后图片</button><button disabled={busy || dirty} type="button" onClick={() => onOpen(current.slug, "merch")}>添加物料图片</button><button disabled={busy || dirty} type="button" onClick={() => onOpen(current.slug, "articles")}>图文内容</button></div>{dirty && <p>先保存活动，即可管理它的图片与文章。</p>}
       <form className="cms-wechat-import" onSubmit={e => { e.preventDefault(); void importArticle(); }}><h3>公众号文章转入</h3><label>文章链接<input type="url" value={url} placeholder="https://mp.weixin.qq.com/s/…" onChange={e => setUrl(e.target.value)} required disabled={busy} /></label><button type="submit" disabled={busy || dirty || !url.trim()}>转为文章草稿</button><p>保留图文顺序并保存图片。若微信要求验证，请复制正文到图文编辑器；视频、小程序等交互内容请另行补充。</p></form>
     </div>}</div>
