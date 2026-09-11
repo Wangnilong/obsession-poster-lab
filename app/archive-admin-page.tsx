@@ -28,6 +28,19 @@ export default function ArchiveAdminPage() {
   const [films, setFilms] = useState<ArchiveFilm[]>(archiveFilms);
   const [catalogError, setCatalogError] = useState("");
   useEffect(() => {
+    const openClip = () => {
+      if (!/^#wechat-clip=[a-f0-9-]{36}$/.test(window.location.hash)) return;
+      if (!window.dispatchEvent(new Event("cms-before-navigate", { cancelable: true }))) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        return;
+      }
+      setWechatMode(true);
+    };
+    openClip();
+    window.addEventListener("hashchange", openClip);
+    return () => window.removeEventListener("hashchange", openClip);
+  }, []);
+  useEffect(() => {
     if (!editor) return;
     let active = true;
     const request = editor.role === "admin" ? getEditorEvents().then(data => data.events.map(eventFilm)) : loadArchiveEvents();

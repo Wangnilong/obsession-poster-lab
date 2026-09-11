@@ -33,6 +33,48 @@ export default function ArchiveWechatStudio({ films, initialFilm, username, onOp
   const [mobilePreview, setMobilePreview] = useState(false);
   const input = useRef<HTMLDivElement>(null);
   const requestId = useRef("");
+  const importedClip = useRef("");
+  const clipRequest = useRef("");
+  useEffect(() => {
+    let timers: ReturnType<typeof setTimeout>[] = [];
+    let received = false;
+    const receive = (event: MessageEvent) => {
+      const data = event.data;
+      if (event.source !== window || event.origin !== window.location.origin || data?.request !== clipRequest.current) return;
+      if (data.type === "cosmos-wechat-cleared" && data.ok && data.id === importedClip.current) {
+        if (window.location.hash === `#wechat-clip=${data.id}`) window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        importedClip.current = "";
+        return;
+      }
+      if (data.type !== "cosmos-wechat-result" || received || window.location.hash !== `#wechat-clip=${data.id}`) return;
+      received = true; timers.forEach(clearTimeout);
+      if (data.error) { setError(String(data.error)); setMessage(""); return; }
+      const article = data.article;
+      try {
+        if (!article || typeof article.title !== "string" || !article.title.trim() || article.title.length > 200 || typeof article.html !== "string" || article.html.length > 500000) throw new Error("插件传来的文章无效，请重新导入。");
+        const source = new URL(article.url);
+        if (source.protocol !== "https:" || source.hostname !== "mp.weixin.qq.com" || source.username || source.password || source.port || !/^\/s(?:\/|$)/.test(source.pathname)) throw new Error("插件传来的原文链接无效。");
+        const content = pasteHtml(article.html, "");
+        setMode("content"); setTitle(article.title); setUrl(source.href); setHtml(content);
+        if (input.current) input.current.innerHTML = content;
+        importedClip.current = data.id; requestId.current = "";
+        setConverted(null); setSavedId(""); setDirty(true); setError(""); setLinkBlocked(false);
+        setMessage("已从浏览器带入标题和图文。请选择所属活动，再点击“转换并保存草稿”。");
+      } catch (cause) { setError(cause instanceof Error ? cause.message : "插件导入失败"); setMessage(""); }
+    };
+    const requestClip = () => {
+      const match = /^#wechat-clip=([a-f0-9-]{36})$/.exec(window.location.hash);
+      if (!match || importedClip.current === match[1]) return;
+      timers.forEach(clearTimeout); received = false;
+      clipRequest.current = crypto.randomUUID();
+      setMessage("正在接收浏览器中的文章…"); setError("");
+      const request = clipRequest.current;
+      timers = [0, 500, 1500, 3000].map(delay => setTimeout(() => window.postMessage({ type: "cosmos-wechat-request", id: match[1], request }, window.location.origin), delay));
+      timers.push(setTimeout(() => { if (!received) { setError("还未连接到导入插件。请确认在同一个浏览器安装并启用插件，然后刷新后台；也可以使用粘贴图文。"); setMessage(""); } }, 6000));
+    };
+    window.addEventListener("message", receive); window.addEventListener("hashchange", requestClip); requestClip();
+    return () => { timers.forEach(clearTimeout); window.removeEventListener("message", receive); window.removeEventListener("hashchange", requestClip); };
+  }, []);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => { if (dirty || busy) event.preventDefault(); };
     const navigate = (event: Event) => { if (busy || (dirty && !window.confirm("转换内容尚未保存，确定离开？"))) event.preventDefault(); };
@@ -53,6 +95,7 @@ export default function ArchiveWechatStudio({ films, initialFilm, username, onOp
     try {
       const result = await convertWechatArticle({ film, mode, title, url, html, requestId: requestId.current, saveDraft: true });
       setConverted({ ...result, articleHtml: cleanEditorHtml(result.articleHtml), film }); setSavedId(result.id); setDirty(false);
+      if (importedClip.current) window.postMessage({ type: "cosmos-wechat-saved", id: importedClip.current, request: clipRequest.current }, window.location.origin);
       setMessage(`转换完成，${result.images} 张图片和文章草稿已自动保存。可以直接进入编辑器调整和发布。`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "转换失败，请重试"); setMessage("");
@@ -96,6 +139,7 @@ export default function ArchiveWechatStudio({ films, initialFilm, username, onOp
     finally { setBusy(false); }
   };
   return <section className="cms-studio cms-converter"><header className="cms-heading"><div><small>ARTICLE CONVERTER</small><h1>公众号转网页</h1></div></header>
+    <details className="cms-import-install"><summary>更方便：安装浏览器导入插件</summary><p>在 Chrome 或 Edge 中打开公众号文章，点击插件即可把标题和图文带入这里。</p><div className="cms-actions"><a className="cms-source-link" href="/downloads/cosmos-wechat-importer.zip" download>下载导入插件 ZIP</a><a className="cms-source-link" href="/downloads/wechat-importer-guide.html" target="_blank" rel="noopener noreferrer">查看安装步骤 ↗</a></div><p>首次安装后刷新后台。微信要求验证时，请先在文章页完成验证。导入后仍需管理员选择活动并保存草稿。</p></details>
     <p>复制公众号文章的图文，粘贴到左侧。转换后自动保存为活动草稿，再预览、编辑或下载网页。</p>
     <fieldset disabled={busy}><legend>文章来源</legend><div className="cms-actions"><button type="button" aria-pressed={mode === "content"} onClick={() => { setMode("content"); change(); }}>粘贴图文</button><button type="button" aria-pressed={mode === "link"} onClick={() => { setMode("link"); change(); }}>输入公众号链接</button></div>
       <div className="cms-event-pair"><label>所属活动<select value={film} onChange={event => { setFilm(event.target.value); change(); }}>{films.map(item => <option key={item.slug} value={item.slug}>{item.zhTitle}</option>)}</select></label><label>文章标题{mode === "link" && "（自动读取）"}<input value={title} disabled={mode === "link"} maxLength={200} onChange={event => { setTitle(event.target.value); change(); }} /></label></div>
