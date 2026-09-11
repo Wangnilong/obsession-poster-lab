@@ -2,6 +2,12 @@ const ADMIN = "https://cosmosfilm42-admin-d8c82218a2fad-1325477277.tcloudbaseapp
 const TTL = 24 * 60 * 60 * 1000;
 const validId = id => typeof id === "string" && /^[a-f0-9-]{36}$/.test(id);
 const key = id => `article:${id}`;
+function isAdminPage(value) {
+  try {
+    const url = new URL(value);
+    return url.origin === new URL(ADMIN).origin && url.pathname === "/archive/admin/" && !url.username && !url.password;
+  } catch { return false; }
+}
 function validArticle(value) {
   if (!value || typeof value.title !== "string" || !value.title.trim() || value.title.length > 200 || typeof value.html !== "string" || !value.html.trim() || value.html.length > 500000) return false;
   try { const u = new URL(value.url); return u.protocol === "https:" && u.hostname === "mp.weixin.qq.com" && !u.username && !u.password && !u.port && /^\/s(?:\/|$)/.test(u.pathname); } catch { return false; }
@@ -17,23 +23,24 @@ async function handle(message, sender) {
     const id = crypto.randomUUID();
     const tabs = await chrome.tabs.query({ url: ADMIN + "*" });
     const existing = tabs.find(tab => tab.active) || tabs[0];
-    await chrome.storage.local.set({ [key(id)]: { article: message.article, createdAt: Date.now(), tabId: existing?.id ?? null } });
+    // Bind the destination before navigation can mount the receiving page.
+    const destination = existing || await chrome.tabs.create({ url: "about:blank", active: false });
     try {
-      const target = existing
-        ? await chrome.tabs.update(existing.id, { url: ADMIN + "#wechat-clip=" + id, active: true })
-        : await chrome.tabs.create({ url: ADMIN + "#wechat-clip=" + id });
-      // A newly-created tab can request before this write; bind that first request below.
-      await chrome.storage.local.set({ [key(id)]: { article: message.article, createdAt: Date.now(), tabId: target.id } });
+      await chrome.storage.local.set({ [key(id)]: { article: message.article, createdAt: Date.now(), tabId: destination.id } });
+      const target = await chrome.tabs.update(destination.id, { url: ADMIN + "#wechat-clip=" + id, active: true });
       if (target.windowId != null) await chrome.windows.update(target.windowId, { focused: true }).catch(() => {});
       return { ok: true };
     } catch (error) { await chrome.storage.local.remove(key(id)); throw error; }
   }
   if (!["get-article", "saved-article"].includes(message?.type) || !validId(message.id)) throw new Error("无效请求");
-  const expected = ADMIN + "#wechat-clip=" + message.id;
-  if (sender.id !== chrome.runtime.id || sender.frameId !== 0 || sender.url !== expected || sender.tab?.id == null) throw new Error("只能从对应的宇宙放映后台接收文章。");
+  // Sender metadata may omit or retain an older fragment after same-document
+  // navigation. Authorize the admin document and bound tab, not that fragment.
+  if (sender.id !== chrome.runtime.id || sender.frameId !== 0 || !isAdminPage(sender.url) || sender.tab?.id == null) throw new Error("只能从对应的宇宙放映后台接收文章。");
+  const currentTab = await chrome.tabs.get(sender.tab.id);
+  if (!isAdminPage(currentTab.url)) throw new Error("后台标签页已跳转，请回到文章重新导入。");
   const record = (await chrome.storage.local.get(key(message.id)))[key(message.id)];
   if (!record || Date.now() - record.createdAt > TTL) { await chrome.storage.local.remove(key(message.id)); throw new Error("暂存文章已过期，请回到原文重新点插件导入。"); }
-  if (record.tabId != null && record.tabId !== sender.tab.id) throw new Error("请在插件打开的后台标签页继续导入。");
+  if (record.tabId !== sender.tab.id) throw new Error("请在插件打开的后台标签页继续导入。");
   if (message.type === "saved-article") { await chrome.storage.local.remove(key(message.id)); return { ok: true }; }
   return { ok: true, article: record.article };
 }

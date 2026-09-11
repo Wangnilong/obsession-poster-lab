@@ -49,6 +49,7 @@ test("extracted content uses existing image storage and does not fetch the block
 
 async function background(existing = true) {
   const storage = {}; const tabs = []; let handler;
+  const liveTabs = new Map([[42, { id: 42, windowId: 1, url: ADMIN }]]);
   const chrome = {
     runtime: { id: "fixture", getURL: path => "chrome-extension://fixture/" + path, onMessage: { addListener: cb => { handler = cb; } } },
     storage: { local: {
@@ -58,8 +59,9 @@ async function background(existing = true) {
     } },
     tabs: {
       query: async () => existing ? [{ id: 42, windowId: 1, active: true }] : [],
-      update: async (id, change) => { tabs.push(change); return { id, windowId: 1 }; },
-      create: async change => { tabs.push(change); return { id: 43, windowId: 1 }; },
+      get: async id => liveTabs.get(id),
+      update: async (id, change) => { tabs.push(change); const tab = { id, windowId: 1, ...change }; liveTabs.set(id, tab); return tab; },
+      create: async change => { const tab = { id: 43, windowId: 1, ...change }; liveTabs.set(43, tab); return tab; },
     },
     windows: { update: async () => {} },
   };
@@ -67,7 +69,7 @@ async function background(existing = true) {
   const send = (message, sender) => new Promise(resolve => handler(message, sender, resolve));
   const queue = () => send({ type: "queue-article", article: extract(fixture) }, { id: "fixture", url: chrome.runtime.getURL("popup.html") });
   const sender = id => ({ id: "fixture", frameId: 0, tab: { id: existing ? 42 : 43 }, url: ADMIN + "#wechat-clip=" + id });
-  return { storage, tabs, send, queue, sender, chrome };
+  return { storage, tabs, send, queue, sender, chrome, liveTabs };
 }
 test("imports survive login/refresh and are removed only after successful draft save", async () => {
   const bg = await background();
@@ -86,6 +88,7 @@ test("only the corresponding admin tab can read or acknowledge a clip", async ()
   const id = new URL(bg.tabs[0].url).hash.slice("#wechat-clip=".length);
   for (const sender of [
     { ...bg.sender(id), url: "https://evil.example/#wechat-clip=" + id },
+    { ...bg.sender(id), url: ADMIN.replace("/archive/admin/", "/archive/admin/other/") },
     { ...bg.sender(id), frameId: 1 },
     { ...bg.sender(id), tab: { id: 99 } },
     { ...bg.sender(id), id: "other-extension" },
@@ -93,6 +96,35 @@ test("only the corresponding admin tab can read or acknowledge a clip", async ()
   assert.equal((await bg.send({ type: "get-article", id }, bg.sender(id))).ok, true);
   const unauthorized = await bg.send({ type: "queue-article", article: extract(fixture) }, bg.sender(id));
   assert.ok(unauthorized.error);
+});
+test("reusing an admin tab accepts a sender URL without the new fragment", async () => {
+  const bg = await background(); await bg.queue();
+  const id = new URL(bg.tabs[0].url).hash.slice("#wechat-clip=".length);
+  for (const url of [ADMIN, ADMIN + "#wechat-clip=" + webcrypto.randomUUID(), ADMIN + "?view=import"]) {
+    const result = await bg.send({ type: "get-article", id }, { ...bg.sender(id), url });
+    assert.equal(result.ok, true, result.error);
+    assert.equal(result.article.title, "电影 · 时时刻刻");
+  }
+  assert.equal((await bg.send({ type: "saved-article", id }, { ...bg.sender(id), url: ADMIN })).ok, true);
+});
+test("a page navigated away from admin cannot retrieve an old import", async () => {
+  const bg = await background(); await bg.queue();
+  const id = new URL(bg.tabs[0].url).hash.slice("#wechat-clip=".length);
+  bg.liveTabs.set(42, { id: 42, url: "https://evil.example/" });
+  assert.ok((await bg.send({ type: "get-article", id }, bg.sender(id))).error);
+  assert.equal(Object.keys(bg.storage).length, 1);
+});
+test("a newly opened admin page receives its clip before navigation finishes", async () => {
+  const bg = await background(false);
+  const update = bg.chrome.tabs.update;
+  bg.chrome.tabs.update = async (tabId, change) => {
+    const tab = await update(tabId, change);
+    const id = new URL(change.url).hash.slice("#wechat-clip=".length);
+    const result = await bg.send({ type: "get-article", id }, { ...bg.sender(id), url: ADMIN });
+    assert.equal(result.ok, true, result.error);
+    return tab;
+  };
+  assert.equal((await bg.queue()).ok, true);
 });
 test("expired clips cannot be retrieved and failed tab opens do not leave orphan imports", async () => {
   const bg = await background(); await bg.queue();
