@@ -268,8 +268,8 @@ export async function listEditorContent(film: string, section: ArchiveSection, r
 async function editorRequest<T>(action: string, data: object): Promise<T> {
   const app = await getArchiveApp();
   const result = await app.callFunction({ name: "archive-api", data: { action, ...data }, parse: true });
-  const payload = result.result as T & { ok?: boolean; message?: string };
-  if (!payload?.ok) throw new Error(payload?.message || "操作失败，请重试");
+  const payload = result.result as T & { ok?: boolean; message?: string; code?: string };
+  if (!payload?.ok) throw Object.assign(new Error(payload?.message || "操作失败，请重试"), { code: payload?.code });
   return payload;
 }
 

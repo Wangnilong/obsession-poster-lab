@@ -420,7 +420,7 @@ exports.main = async (event = {}) => {
         : importWechat(cloud, event.url, event.film);
       const result = event.saveDraft ? await convertDraft(db, cloud, uid, event, convert) : await convert();
       return { ok: true, ...result };
-    } catch (error) { return { ok: false, message: error.message || "转换失败，原内容仍保留，可重试" }; }
+    } catch (error) { return { ok: false, code: error.code, message: error.message || "转换失败，原内容仍保留，可重试" }; }
   }
   if (!event.httpMethod && ["photo-submissions-list", "photo-submissions-review"].includes(event.action)) {
     try {

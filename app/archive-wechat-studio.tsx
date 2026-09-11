@@ -28,6 +28,7 @@ export default function ArchiveWechatStudio({ films, initialFilm, username, onOp
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [linkBlocked, setLinkBlocked] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [mobilePreview, setMobilePreview] = useState(false);
   const input = useRef<HTMLDivElement>(null);
@@ -38,7 +39,7 @@ export default function ArchiveWechatStudio({ films, initialFilm, username, onOp
     window.addEventListener("beforeunload", warn); window.addEventListener("cms-before-navigate", navigate);
     return () => { window.removeEventListener("beforeunload", warn); window.removeEventListener("cms-before-navigate", navigate); };
   }, [dirty, busy]);
-  const change = () => { requestId.current = ""; setConverted(null); setSavedId(""); setDirty(true); setMessage(""); setError(""); };
+  const change = () => { requestId.current = ""; setConverted(null); setSavedId(""); setDirty(true); setMessage(""); setError(""); setLinkBlocked(false); };
   const paste = (event: ClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
     const source = pasteHtml(event.clipboardData.getData("text/html"), event.clipboardData.getData("text/plain"));
@@ -53,7 +54,10 @@ export default function ArchiveWechatStudio({ films, initialFilm, username, onOp
       const result = await convertWechatArticle({ film, mode, title, url, html, requestId: requestId.current, saveDraft: true });
       setConverted({ ...result, articleHtml: cleanEditorHtml(result.articleHtml), film }); setSavedId(result.id); setDirty(false);
       setMessage(`转换完成，${result.images} 张图片和文章草稿已自动保存。可以直接进入编辑器调整和发布。`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "转换失败，请重试"); setMessage(""); }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "转换失败，请重试"); setMessage("");
+      setLinkBlocked(cause instanceof Error && "code" in cause && ["WECHAT_VERIFICATION_REQUIRED", "WECHAT_READING_BLOCKED"].includes(String(cause.code)));
+    }
     finally { setBusy(false); }
   };
   const save = async () => {
@@ -97,8 +101,8 @@ export default function ArchiveWechatStudio({ films, initialFilm, username, onOp
       <div className="cms-event-pair"><label>所属活动<select value={film} onChange={event => { setFilm(event.target.value); change(); }}>{films.map(item => <option key={item.slug} value={item.slug}>{item.zhTitle}</option>)}</select></label><label>文章标题{mode === "link" && "（自动读取）"}<input value={title} disabled={mode === "link"} maxLength={200} onChange={event => { setTitle(event.target.value); change(); }} /></label></div>
       <label>公众号原文链接{mode === "content" && "（选填）"}<input type="url" value={url} placeholder="https://mp.weixin.qq.com/s/…" onChange={event => { setUrl(event.target.value); change(); }} /></label>
     </fieldset>
+    {message && <p className="cms-notice" role="status">{message}</p>}{error && <div className="cms-error" role="alert"><p>{error}</p>{linkBlocked && <><div className="cms-actions"><a className="cms-source-link" href={url} target="_blank" rel="noopener noreferrer">打开公众号原文 ↗</a><button type="button" disabled={busy} onClick={() => { setMode("content"); change(); setMessage("原文链接和所属活动已保留。请复制文章图文，粘贴到下方并填写标题。"); input.current?.focus(); }}>改用粘贴图文</button></div><p>在原文中复制标题和正文图片，回到这里粘贴。浏览器中能打开文章，不代表微信允许服务器自动读取。</p></>}</div>}
     <div className="cms-converter-columns"><section><h2>{mode === "content" ? "粘贴公众号图文" : "链接导入"}</h2><div hidden={mode !== "content"}><div ref={input} className="cms-paste-surface" role="textbox" aria-label="公众号图文内容" aria-multiline="true" contentEditable={!busy} suppressContentEditableWarning onPaste={paste} onDrop={event => event.preventDefault()} onInput={() => { setHtml(input.current?.innerHTML || ""); change(); }} /></div>{mode === "link" && <p>输入原文链接后点击转换。如果微信要求验证，可切换到“粘贴图文”，复制正文继续处理。</p>}<button type="button" className="cms-primary" disabled={busy || !films.some(item => item.slug === film) || (mode === "content" ? !title.trim() || !html.trim() : !url.trim())} onClick={() => void convert()}>{busy ? "处理中…" : "转换并保存草稿 →"}</button><p className="cms-converter-help">支持文字、图片和基本排版。微信视频、小程序、抽奖及留言请在原文中使用；复制时请带上所需图片。</p></section>
       <section><div className="cms-preview-heading"><h2>网页预览</h2><button type="button" aria-pressed={mobilePreview} onClick={() => setMobilePreview(value => !value)}>{mobilePreview ? "切回宽屏" : "查看手机宽度"}</button></div>{converted ? <><article className={`cms-converted-page${mobilePreview ? " is-mobile-preview" : ""}`}><h1>{converted.title}</h1><div className="archive-article-rich" dangerouslySetInnerHTML={{ __html: converted.articleHtml }} /></article><div className="cms-actions"><button type="button" className="cms-primary" disabled={busy || Boolean(savedId)} onClick={() => void save()}>{savedId ? "已保存草稿" : "保存到活动草稿"}</button><button type="button" disabled={busy} onClick={() => void download()}>下载网页</button>{savedId && <button type="button" disabled={busy} onClick={() => onOpen(converted.film, savedId)}>进入图文编辑器</button>}</div><p>下载会将图片一起打包；活动草稿可继续编辑和发布。</p></> : <div className="cms-converter-empty">转换后在这里核对网页效果</div>}</section></div>
-    {message && <p className="cms-notice" role="status">{message}</p>}{error && <p className="cms-error" role="alert">{error}</p>}
   </section>;
 }

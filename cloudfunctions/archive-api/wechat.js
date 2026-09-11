@@ -5,6 +5,17 @@ const sanitize = require("sanitize-html");
 const { sanitizeArticle } = require("./article-html");
 const articleFormat = require("./article-format.json");
 const imageHosts = new Set(["mmbiz.qpic.cn", "mmbiz.qlogo.cn", "mmecoa.qpic.cn", "wx.qlogo.cn"]);
+function readBlocked(verification = false) {
+  return Object.assign(new Error(verification
+    ? "链接格式正确，但微信要求访问验证，服务器未能读取正文。请打开原文，复制图文后切换到“粘贴图文”继续转换。"
+    : "链接格式正确，但微信暂未提供文章正文。请打开原文确认文章可访问，再复制图文继续转换。"), { code: verification ? "WECHAT_VERIFICATION_REQUIRED" : "WECHAT_READING_BLOCKED" });
+}
+function checkedRedirect(location, current, image = false) {
+  const next = new URL(location, current);
+  if (!image && next.hostname === "mp.weixin.qq.com" && /captcha|verify|verification/i.test(next.pathname)) throw readBlocked(true);
+  try { return checkedUrl(next.href, image); }
+  catch (error) { if (!image) throw readBlocked(); throw error; }
+}
 
 function checkedUrl(input, image = false) {
   let url;
@@ -34,10 +45,10 @@ function download(input, { image = false, max = 3 * 1024 * 1024, deadline = Date
       if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
         response.resume();
         if (!response.headers.location || redirects >= 3) { reject(new Error("公众号链接跳转过多，请使用文章原链接")); return; }
-        try { resolve(download(new URL(response.headers.location, url).href, { image, max, deadline, redirects: redirects + 1 })); } catch (error) { reject(error); }
+        try { resolve(download(checkedRedirect(response.headers.location, url, image).href, { image, max, deadline, redirects: redirects + 1 })); } catch (error) { reject(error); }
         return;
       }
-      if (response.statusCode !== 200) { response.resume(); reject(new Error("微信暂时不允许读取这篇文章，可复制正文到图文编辑器")); return; }
+      if (response.statusCode !== 200) { response.resume(); reject(image ? new Error("文章图片读取失败，请稍后重试或手动上传") : readBlocked()); return; }
       const chunks = []; let size = 0;
       response.on("data", chunk => { size += chunk.length; if (size > max) request.destroy(new Error("文章或图片过大，请手动导入")); else chunks.push(chunk); });
       response.on("end", () => resolve({ buffer: Buffer.concat(chunks), type: String(response.headers["content-type"] || "").split(";")[0] }));
@@ -52,7 +63,7 @@ function parseWechat(html) {
   let body, title;
   const find = node => { if (node.attribs?.id === "js_content") body = node; if (node.attribs?.id === "activity-name") title = node; node.children?.forEach(find); };
   find(doc);
-  if (!body) throw new Error("微信未返回文章正文，可能需要验证。请复制正文到图文编辑器后保存草稿。");
+  if (!body) throw readBlocked(/wappoc_appmsgcaptcha|环境异常|完成验证|安全验证/.test(html));
   const text = node => node?.type === "text" ? node.data : (node?.children || []).map(text).join("");
   const images = [];
   const gather = node => { if (node.name === "img") { const src = node.attribs["data-src"] || node.attribs.src; if (src) images.push(src.startsWith("//") ? `https:${src}` : src.replace(/^http:/, "https:")); } node.children?.forEach(gather); };
@@ -120,4 +131,4 @@ async function storeWechat(cloud, article, url, film, fetchFile, deadline) {
     throw error;
   }
 }
-module.exports = { checkedUrl, parseWechat, importWechat, parseWechatContent, importWechatContent, preserveEmbeds };
+module.exports = { checkedUrl, checkedRedirect, parseWechat, importWechat, parseWechatContent, importWechatContent, preserveEmbeds };

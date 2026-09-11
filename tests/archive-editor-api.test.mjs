@@ -75,6 +75,16 @@ test("Word formatting survives draft, reopen, publish and republish without chan
 });
 const { defaultPresentation, imageKeys } = require('./presentation');
 const { checkedUrl, parseWechat, importWechat } = require('./wechat');
+const { checkedRedirect } = require('./wechat');
+test('valid WeChat article links redirected to verification are not reported as invalid URLs', () => {
+  const original = 'https://mp.weixin.qq.com/s/LSWAUTzlQGAzGIFchq6Kxg';
+  assert.equal(checkedUrl(original).href, original);
+  assert.throws(() => checkedRedirect('/mp/wappoc_appmsgcaptcha?target_url=article', original), error => error.code === 'WECHAT_VERIFICATION_REQUIRED' && /链接格式正确/.test(error.message));
+  assert.throws(() => parseWechat('<html><p>环境异常，请完成验证</p></html>'), error => error.code === 'WECHAT_VERIFICATION_REQUIRED');
+  assert.equal(checkedRedirect('/s/another', original).pathname, '/s/another');
+  assert.throws(() => checkedRedirect('https://evil.example/page', original), error => error.code === 'WECHAT_READING_BLOCKED');
+  assert.throws(() => checkedRedirect('http://127.0.0.1/private', 'https://mmbiz.qpic.cn/a.png', true));
+});
 const { parseWechatContent, importWechatContent } = require('./wechat');
 test('converted drafts survive response retries without duplicates or overwriting later edits', async () => {
   const {run, records} = service('2084617266415722497');
